@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <!-- java.awt.Color.DARK_GRAY, the desktop toolbar colour -->
+    <color name="toolbar_background">#FF404040</color>
+</resources>
