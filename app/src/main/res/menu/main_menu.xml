@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_save"
+        android:icon="@drawable/ic_save"
+        android:title="Save"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_save_as"
+        android:title="Save as…"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_load"
+        android:title="Open…"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_export"
+        android:title="Export JPG…"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_layers"
+        android:title="Layers"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_invert"
+        android:checkable="true"
+        android:title="Invert colours"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_fit"
+        android:title="Fit to screen"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_new_normal"
+        android:title="New diagonal fence"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_new_vertical"
+        android:title="New vertical fence"
+        app:showAsAction="never" />
+</menu>
