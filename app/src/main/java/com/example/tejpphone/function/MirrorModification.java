@@ -75,7 +75,8 @@ public class MirrorModification extends TransformStripsModification {
                         new Coord(midX + (midX - er.getX()), er.getY()));
             }
 
-            newStrips.add(new Strip(newStart, newEnd, s.getWidth(), fence.getType()));
+            // The desktop left out the colour here, so mirrored strips turned white.
+            newStrips.add(new Strip(newStart, newEnd, s.getWidth(), fence.getType(), s.getColor()));
         }
 
         fence.getStrips().removeAll(oldStrips);

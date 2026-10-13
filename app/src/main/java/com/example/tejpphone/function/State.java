@@ -19,8 +19,29 @@ public final class State {
     public enum Mode {
         DRAWING,
         EDITING,
-        MOVING
+        MOVING,
+        /** Desktop MOVINGPIC: drag the picture, or drag a corner to resize it. */
+        PICTURE
     }
+
+    /** Desktop "hor", "diag" and "vert" buttons. */
+    public enum AutoDirection {
+        HORIZONTAL,
+        DIAGONAL,
+        VERTICAL
+    }
+
+    /** Desktop "pic2" button: show or hide the picture. Auto strips still use a hidden picture. */
+    public static boolean showingPic = true;
+
+    public static AutoDirection autoDirection = AutoDirection.HORIZONTAL;
+
+    /**
+     * Threshold and contrast for each direction, 0 to 1, indexed by AutoDirection.ordinal().
+     * The desktop started them at 100, which its sliders clamp to 1, so 1 is the same starting point.
+     */
+    public static final float[] autoThreshold = {1f, 1f, 1f};
+    public static final float[] autoContrast = {1f, 1f, 1f};
 
     public static final int WHITE = 0xFFFFFFFF;
     public static final int RED = 0xFFFF0000;

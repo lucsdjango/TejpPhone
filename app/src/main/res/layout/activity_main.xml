@@ -50,6 +50,68 @@
             app:singleLine="true" />
     </HorizontalScrollView>
 
+    <!-- Port of the desktop auto strips panel: direction buttons and two sliders. -->
+    <LinearLayout
+        android:id="@+id/autoPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:visibility="gone">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/autoDirectionGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:selectionRequired="true"
+            app:singleLine="true"
+            app:singleSelection="true" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="88dp"
+                android:layout_height="wrap_content"
+                android:text="Threshold"
+                android:textColor="@color/white" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/thresholdSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:contentDescription="Auto strips threshold"
+                android:valueFrom="0"
+                android:valueTo="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="88dp"
+                android:layout_height="wrap_content"
+                android:text="Contrast"
+                android:textColor="@color/white" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/contrastSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:contentDescription="Auto strips contrast"
+                android:valueFrom="0"
+                android:valueTo="1" />
+        </LinearLayout>
+    </LinearLayout>
+
     <com.example.tejpphone.view.FenceView
         android:id="@+id/fenceView"
         android:layout_width="match_parent"

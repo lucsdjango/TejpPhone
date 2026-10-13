@@ -18,6 +18,11 @@ public final class History {
         return modifications.isEmpty() ? null : modifications.removeLast();
     }
 
+    /** The latest modification without removing it, or null. */
+    public static Modification peekLast() {
+        return modifications.isEmpty() ? null : modifications.getLast();
+    }
+
     public static void clear() {
         modifications.clear();
     }

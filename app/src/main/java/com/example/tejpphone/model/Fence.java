@@ -14,19 +14,21 @@ public abstract class Fence {
     protected final Edge[][] edges;
     protected LinkedList<Strip> strips;
 
-    /**
-     * Data from a loaded .tjp file that the phone app does not use, kept so that saving
-     * writes it back unchanged: the desktop reference picture and any animation frames after the first.
-     */
-    private byte[] pictureData;
-    private List<List<Strip>> extraFrames = new ArrayList<>();
+    /** The reference picture under the grid, or null. */
+    private Picture picture;
 
-    public byte[] getPictureData() {
-        return pictureData;
+    /**
+     * Animation frames after the first, from a loaded .tjp file. The phone app does not edit them,
+     * but keeps them so that saving writes them back unchanged.
+     */
+    private final List<List<Strip>> extraFrames = new ArrayList<>();
+
+    public Picture getPicture() {
+        return picture;
     }
 
-    public void setPictureData(byte[] data) {
-        pictureData = data;
+    public void setPicture(Picture p) {
+        picture = p;
     }
 
     public List<List<Strip>> getExtraFrames() {

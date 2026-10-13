@@ -202,6 +202,69 @@ public class TejpModelTest {
     }
 
     @Test
+    public void copyKeepsTheOriginalColour() {
+        Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(8, 4), 1f,
+                NormalFence.TYPE, State.RED);
+        State.fence.addStrip(s);
+        State.selectedStrips.add(s);
+
+        controller.copySelected();
+        Strip copy = State.fence.getStrips().getLast();
+        assertTrue(copy != s);
+        assertEquals(State.RED, copy.getColor());
+    }
+
+    @Test
+    public void mirrorKeepsTheOriginalColour() {
+        Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(6, 8), 1f,
+                NormalFence.TYPE, State.BLUE);
+        State.fence.addStrip(s);
+        State.selectedStrips.add(s);
+
+        controller.mirrorSelected();
+        Strip m = State.fence.getStrips().getFirst();
+        assertTrue(m != s);
+        assertEquals(State.BLUE, m.getColor());
+    }
+
+    @Test
+    public void undoDeleteWorksAfterTheSelectionChanged() {
+        Fence f = State.fence;
+        Strip a = new Strip(f.getEdgeAt(2, 4), f.getEdgeAt(8, 4), 1f, NormalFence.TYPE);
+        Strip b = new Strip(f.getEdgeAt(2, 8), f.getEdgeAt(8, 8), 1f, NormalFence.TYPE);
+        Strip c = new Strip(f.getEdgeAt(2, 12), f.getEdgeAt(8, 12), 1f, NormalFence.TYPE);
+        f.addStrip(a);
+        f.addStrip(b);
+        f.addStrip(c);
+        State.selectedStrips.add(b);
+
+        controller.deleteSelected();
+        assertEquals(2, f.getStrips().size());
+        assertFalse(State.selectedStrips.contains(b));
+
+        // On the desktop this emptied the delete's record, so the undo below restored nothing.
+        controller.selectAll();
+        controller.undo();   // undoes Select all
+        controller.undo();   // undoes Delete
+
+        assertEquals(3, f.getStrips().size());
+        assertSame(b, f.getStrips().get(1));   // back in its old place in the stack
+        assertTrue(State.selectedStrips.contains(b));
+    }
+
+    @Test
+    public void deletedStripsCannotComeBackThroughCopyOrMirror() {
+        Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(8, 4), 1f, NormalFence.TYPE);
+        State.fence.addStrip(s);
+        State.selectedStrips.add(s);
+
+        controller.deleteSelected();
+        controller.copySelected();
+        controller.mirrorSelected();
+        assertTrue(State.fence.getStrips().isEmpty());
+    }
+
+    @Test
     public void shiftDragMovesTheEndOfAnExistingStrip() {
         Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(8, 4), 1f, NormalFence.TYPE);
         State.fence.addStrip(s);
