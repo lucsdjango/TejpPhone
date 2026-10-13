@@ -12,10 +12,9 @@ public class CopyModification extends Modification {
     private final HashSet<Strip> newStrips = new HashSet<>();
     private final Fence fence;
 
-    @SuppressWarnings("unchecked")
     public CopyModification(Fence f) {
         fence = f;
-        selStrips = (HashSet<Strip>) State.selectedStrips.clone();
+        selStrips = new HashSet<>(State.selectedStrips);
         for (Strip s : selStrips) {
             // The desktop app gave copies the default white. They now keep the original's colour.
             Strip sCopy = new Strip(s.getStart(), s.getEnd(), s.getWidth(), f.getType(), s.getColor());
@@ -31,12 +30,18 @@ public class CopyModification extends Modification {
 
     @Override
     public void perform() {
-        State.selectedStrips = newStrips;
+        State.selectedStrips = new HashSet<>(newStrips);
+    }
+
+    @Override
+    public void redo() {
+        fence.getStrips().addAll(newStrips);
+        perform();
     }
 
     @Override
     public void revert() {
         fence.getStrips().removeAll(newStrips);
-        State.selectedStrips = selStrips;
+        State.selectedStrips = new HashSet<>(selStrips);
     }
 }

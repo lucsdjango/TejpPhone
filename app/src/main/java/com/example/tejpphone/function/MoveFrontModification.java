@@ -9,6 +9,7 @@ public class MoveFrontModification extends Modification {
 
     private final LinkedList<Strip> oldStrips;
     private final LinkedList<Strip> strips;
+    private LinkedList<Strip> newStrips;
 
     public MoveFrontModification(LinkedList<Strip> currentStrips) {
         strips = currentStrips;
@@ -20,6 +21,13 @@ public class MoveFrontModification extends Modification {
         for (Strip strip : State.selectedStrips) {
             if (strips.remove(strip)) strips.addLast(strip);
         }
+        newStrips = new LinkedList<>(strips);
+    }
+
+    @Override
+    public void redo() {
+        strips.clear();
+        strips.addAll(newStrips);
     }
 
     @Override
@@ -30,6 +38,6 @@ public class MoveFrontModification extends Modification {
 
     @Override
     public boolean isValid() {
-        return true;
+        return !oldStrips.equals(newStrips);
     }
 }

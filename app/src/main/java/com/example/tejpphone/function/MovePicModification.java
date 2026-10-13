@@ -6,9 +6,9 @@ import com.example.tejpphone.model.Picture;
 /**
  * Moves or resizes the picture. Port of the desktop MovePicModification.
  *
- * <p>As on the desktop, a plain drag moves the whole picture. With Shift, the drag moves the corner
- * in the quarter of the picture where the finger landed. New on the phone: grabbing a corner
- * handle resizes from that corner without Shift.
+ * <p>Dragging inside the picture moves it. Dragging a corner handle resizes it from that corner,
+ * which replaces the desktop's Shift-drag. With "keep aspect" on, resizing keeps the
+ * picture's width-to-height ratio.
  */
 public class MovePicModification extends Modification {
 
@@ -16,14 +16,14 @@ public class MovePicModification extends Modification {
 
     private final Picture picture;
     private final double oldX0, oldY0, oldX3, oldY3;
+    private double[] newCorners;
     private final float orgx, orgy;
-    /** 0 top left, 1 top right, 2 bottom left, 3 bottom right. */
+    /** 0 top left, 1 top right, 2 bottom left, 3 bottom right, or -1 to move. */
     private final int corner;
-    private final boolean handle;
 
     /**
      * @param x      touch position in content units
-     * @param handle corner handle under the finger, or -1
+     * @param handle corner handle under the finger, or -1 to move the whole picture
      */
     public MovePicModification(Picture p, float x, float y, int handle) {
         picture = p;
@@ -34,21 +34,12 @@ public class MovePicModification extends Modification {
         oldY3 = c[3];
         orgx = x;
         orgy = y;
-        this.handle = handle >= 0;
-
-        if (handle >= 0) {
-            corner = handle;
-        } else {
-            int q = 0;
-            if (x >= (oldX0 + oldX3) / 2 * S) q += 1;
-            if (y >= (oldY0 + oldY3) / 2 * S) q += 2;
-            corner = q;
-        }
+        corner = handle;
     }
 
     /** True while a corner is being dragged rather than the whole picture. */
     public boolean isResizing() {
-        return handle || State.shiftPressed;
+        return corner >= 0;
     }
 
     public int getCorner() {
@@ -60,18 +51,31 @@ public class MovePicModification extends Modification {
         double x0 = oldX0, y0 = oldY0, x3 = oldX3, y3 = oldY3;
 
         if (!isResizing()) {
-            x0 += dx;
-            y0 += dy;
-            x3 += dx;
-            y3 += dy;
-        } else {
-            // Corners cannot cross, so the picture never turns inside out.
-            double m = Picture.MIN_CELLS;
-            if (corner == 0 || corner == 2) x0 = Math.min(oldX0 + dx, oldX3 - m);
-            if (corner == 1 || corner == 3) x3 = Math.max(oldX3 + dx, oldX0 + m);
-            if (corner == 0 || corner == 1) y0 = Math.min(oldY0 + dy, oldY3 - m);
-            if (corner == 2 || corner == 3) y3 = Math.max(oldY3 + dy, oldY0 + m);
+            picture.setCorners(x0 + dx, y0 + dy, x3 + dx, y3 + dy);
+            return;
         }
+
+        boolean left = corner == 0 || corner == 2, top = corner == 0 || corner == 1;
+        // The opposite corner stays put.
+        double ax = left ? oldX3 : oldX0, ay = top ? oldY3 : oldY0;
+        double cx = (left ? oldX0 : oldX3) + dx, cy = (top ? oldY0 : oldY3) + dy;
+
+        // Corners cannot cross, so the picture never turns inside out.
+        double m = Picture.MIN_CELLS;
+        double w = Math.max(m, left ? ax - cx : cx - ax);
+        double h = Math.max(m, top ? ay - cy : cy - ay);
+
+        if (State.keepPictureAspect) {
+            double ow = oldX3 - oldX0, oh = oldY3 - oldY0;
+            double s = Math.max(w / ow, h / oh);
+            w = Math.max(m, ow * s);
+            h = Math.max(m, oh * s);
+        }
+
+        x0 = left ? ax - w : ax;
+        x3 = left ? ax : ax + w;
+        y0 = top ? ay - h : ay;
+        y3 = top ? ay : ay + h;
         picture.setCorners(x0, y0, x3, y3);
     }
 
@@ -82,7 +86,14 @@ public class MovePicModification extends Modification {
     }
 
     @Override
-    public void perform() {}
+    public void perform() {
+        newCorners = picture.getCorners();
+    }
+
+    @Override
+    public void redo() {
+        picture.setCorners(newCorners[0], newCorners[1], newCorners[2], newCorners[3]);
+    }
 
     @Override
     public void revert() {

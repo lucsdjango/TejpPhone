@@ -35,8 +35,6 @@ public class PictureAndAutoStripsTest {
         State.selectedEdge = null;
         State.activeStrip = null;
         State.activeModification = null;
-        State.shiftPressed = false;
-        State.ctrlPressed = false;
         State.inverted = false;
         State.showingPic = true;
         State.autoDirection = State.AutoDirection.HORIZONTAL;
@@ -253,12 +251,12 @@ public class PictureAndAutoStripsTest {
     }
 
     @Test
-    public void shiftDragMovesTheCornerOfThatQuarterAndCornersCannotCross() {
-        controller.loadPicture(new int[]{-1}, 1, 1);
+    public void cornersCannotCross() {
+        controller.loadPicture(new int[]{-1}, 1, 1);   // cells 2..12
         controller.setMode(State.Mode.PICTURE);
-        State.shiftPressed = true;
+        State.keepPictureAspect = false;
 
-        controller.onDown(10 * S, 10 * S, 0);   // bottom-right quarter
+        controller.onDown(12 * S, 12 * S, 6);    // bottom-right handle
         controller.onMove(-50 * S, -50 * S);     // far past the opposite corner
         controller.onUp();
         double[] c = State.fence.getPicture().getCorners();
@@ -266,6 +264,37 @@ public class PictureAndAutoStripsTest {
         assertEquals(2, c[1], 1e-9);
         assertEquals(2 + Picture.MIN_CELLS, c[2], 1e-9);
         assertEquals(2 + Picture.MIN_CELLS, c[3], 1e-9);
+    }
+
+    @Test
+    public void keepAspectResizesInProportion() {
+        controller.loadPicture(new int[]{-1}, 1, 1);
+        State.fence.getPicture().setCorners(2, 2, 22, 12);   // 20 x 10 cells
+        controller.setMode(State.Mode.PICTURE);
+        controller.setKeepPictureAspect(true);
+
+        controller.onDown(22 * S, 12 * S, 6);    // bottom-right handle
+        controller.onMove(42 * S, 13 * S);       // mostly sideways
+        controller.onUp();
+        double[] c = State.fence.getPicture().getCorners();
+        assertArrayEquals(new double[]{2, 2, 42, 22}, c, 1e-9);   // still 2 : 1
+
+        controller.undo();
+        controller.redo();
+        assertArrayEquals(new double[]{2, 2, 42, 22}, State.fence.getPicture().getCorners(), 1e-9);
+        controller.setKeepPictureAspect(false);
+    }
+
+    @Test
+    public void autoStripsSessionRedo() {
+        fill(0xFFFFFFFF);
+        settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
+        controller.runAutoStrips();
+        int n = State.fence.getStrips().size();
+        controller.undo();
+        assertTrue(State.fence.getStrips().isEmpty());
+        controller.redo();
+        assertEquals(n, State.fence.getStrips().size());
     }
 
     @Test

@@ -17,21 +17,24 @@ public class AddStripModification extends Modification {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void perform() {
         fence.getStrips().add(strip);
-        oldSelStrips = (HashSet<Strip>) State.selectedStrips.clone();
+        oldSelStrips = new HashSet<>(State.selectedStrips);
         State.selectedStrips.clear();
     }
 
     @Override
     public void revert() {
         fence.getStrips().remove(strip);
-        State.selectedStrips.addAll(oldSelStrips);
+        State.selectedStrips = new HashSet<>(oldSelStrips);
     }
 
+    /**
+     * A tap without dragging gives a strip that starts and ends on the same edge. The desktop
+     * added these, but they are invisible, and on a phone taps happen all the time.
+     */
     @Override
     public boolean isValid() {
-        return true;
+        return strip.getStart() != strip.getEnd();
     }
 }

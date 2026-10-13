@@ -5,7 +5,7 @@ import com.example.tejpphone.model.Strip;
 
 import java.util.HashSet;
 
-/** Drags the end of an existing strip to a new edge (Shift + draw). */
+/** Drags the end of an existing strip to a new edge (long press in Draw; Shift on the desktop). */
 public class EdgeMovedModification extends Modification {
 
     private final Strip strip;
@@ -13,9 +13,8 @@ public class EdgeMovedModification extends Modification {
     private Edge newEdge;
     private final HashSet<Strip> oldSelStrips;
 
-    @SuppressWarnings("unchecked")
     public EdgeMovedModification() {
-        oldSelStrips = (HashSet<Strip>) State.selectedStrips.clone();
+        oldSelStrips = new HashSet<>(State.selectedStrips);
         strip = State.activeStrip;
         oldEdge = strip.getEnd();
     }
@@ -28,11 +27,18 @@ public class EdgeMovedModification extends Modification {
     }
 
     @Override
+    public void redo() {
+        strip.edgeSelected(oldEdge);
+        strip.setEnd(newEdge);
+        State.selectedStrips.clear();
+        State.selectedStrips.add(strip);
+    }
+
+    @Override
     public void revert() {
         strip.edgeSelected(newEdge);
         strip.setEnd(oldEdge);
-        State.selectedStrips.remove(strip);
-        State.selectedStrips.addAll(oldSelStrips);
+        State.selectedStrips = new HashSet<>(oldSelStrips);
     }
 
     @Override

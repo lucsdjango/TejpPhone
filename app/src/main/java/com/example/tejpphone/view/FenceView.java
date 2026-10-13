@@ -4,19 +4,22 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.tejpphone.function.Modification;
-import com.example.tejpphone.function.MovePicModification;
 import com.example.tejpphone.function.MoveModification;
-import com.example.tejpphone.function.SelectStripsModification;
+import com.example.tejpphone.function.MovePicModification;
 import com.example.tejpphone.function.State;
 import com.example.tejpphone.model.Edge;
 import com.example.tejpphone.model.Fence;
@@ -26,22 +29,42 @@ import com.example.tejpphone.model.VerticalFence;
 
 /**
  * Draws a fence and its strips. Replaces the desktop FencePanel, LayeredFencePanel and EdgePanels.
- * One finger is passed to the TouchController as if it were the mouse.
- * Two fingers pan and pinch-zoom, replacing the scroll bars and the +/- keys.
+ *
+ * <p>Touch:
+ * <ul>
+ *   <li>One finger on the fence is passed to the TouchController as if it were the mouse,
+ *       with a magnifier above the finger.</li>
+ *   <li>One finger that starts where the controller has nothing to do, such as outside the fence, pans.</li>
+ *   <li>Two fingers pan and pinch-zoom.</li>
+ *   <li>A double tap fits the whole fence on screen.</li>
+ *   <li>With a SwipeListener and no controller, as in the layers viewer, a one-finger swipe
+ *       sideways is reported instead of panning.</li>
+ * </ul>
  */
 public class FenceView extends View {
 
     /** Receives one-finger gestures in content coordinates. */
     public interface TouchController {
-        /** Returns true if a gesture started. Only then are onMove/onUp/onCancel called. */
+        /** Returns true if a gesture started. Only then are the other methods called. */
         boolean onDown(float x, float y, float touchRadius);
 
+        /** Called once the finger has moved further than a tap would, and on every move after that. */
         void onMove(float x, float y);
 
-        void onUp();
+        /** @param tap true if the finger never moved further than a tap would */
+        void onUp(boolean tap);
 
         /** A second finger landed, or the system cancelled the gesture. */
         void onCancel();
+
+        /** The finger stayed still for a long press. Returns true if that did something. */
+        boolean onLongPress();
+    }
+
+    /** For the layers viewer. */
+    public interface SwipeListener {
+        /** @param direction +1 for a swipe to the left (next), -1 for a swipe to the right (previous) */
+        void onSwipe(int direction);
     }
 
     private static final int S = Fence.CELL_SIZE;
@@ -52,18 +75,23 @@ public class FenceView extends View {
     /** Picture corner handles: drawn size, and how far from a corner a touch still grabs it. */
     private static final float HANDLE_DP = 14f;
     private static final float HANDLE_TOUCH_DP = 28f;
+    /** Magnifier: radius, distance above the finger, and smallest cell size inside it. */
+    private static final float LOUPE_RADIUS_DP = 56f;
+    private static final float LOUPE_OFFSET_DP = 96f;
+    private static final float LOUPE_MIN_CELL_DP = 28f;
+    private static final float SWIPE_MIN_DP = 64f;
 
     private final float density;
-    private final PictureBitmaps pictureBitmaps = new PictureBitmaps();
-    private final RectF pictureRect = new RectF();
-    private final Paint picturePaint = new Paint(Paint.FILTER_BITMAP_FLAG);
-    private final Paint handleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint handleOutline = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final int touchSlop;
+    private final int doubleTapSlop;
+    private final int doubleTapTimeout = ViewConfiguration.getDoubleTapTimeout();
+    private final int longPressTimeout = ViewConfiguration.getLongPressTimeout();
 
     private Fence fence;
     /** Non-null in the layers viewer: strips from the layers underneath, drawn opaque. */
     private Fence below;
     private TouchController controller;
+    private SwipeListener swipeListener;
 
     private float scale = 1f, tx = 0f, ty = 0f;
     private int fittedWidth = -1, fittedHeight = -1;
@@ -75,12 +103,27 @@ public class FenceView extends View {
     private final Paint selectedEdgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rowLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stripPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint picturePaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint handleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint handleOutline = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint loupeBorder = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final StripRenderer renderer;
+    private final PictureBitmaps pictureBitmaps = new PictureBitmaps();
+    private final RectF pictureRect = new RectF();
+    private final Path loupeClip = new Path();
 
+    // Touch state
     private boolean toolActive = false;
+    private boolean panning = false;
+    private boolean dragging = false;
     private boolean multiTouch = false;
     private boolean pinchValid = false;
     private float lastFocusX, lastFocusY, lastSpan;
+    private float downX, downY, lastX, lastY;
+    private long lastTapTime = 0;
+    private float lastTapX, lastTapY;
+    private final Runnable longPress = this::fireLongPress;
 
     public FenceView(Context context) {
         this(context, null);
@@ -89,9 +132,11 @@ public class FenceView extends View {
     public FenceView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         density = getResources().getDisplayMetrics().density;
+        ViewConfiguration vc = ViewConfiguration.get(context);
+        touchSlop = vc.getScaledTouchSlop();
+        doubleTapSlop = vc.getScaledDoubleTapSlop();
         renderer = new StripRenderer(density);
-        handleOutline.setStyle(Paint.Style.STROKE);
-        handleOutline.setColor(Color.BLACK);
+
         // Stroke width 0 is a one-pixel hairline at any zoom, like the desktop's 1 px lines.
         gridPaint.setColor(Color.BLACK);
         gridPaint.setStrokeWidth(0f);
@@ -100,6 +145,14 @@ public class FenceView extends View {
         rowLinePaint.setColor(Color.BLACK);
         rowLinePaint.setStrokeWidth(0f);
         stripPaint.setStyle(Paint.Style.FILL);
+        handleOutline.setStyle(Paint.Style.STROKE);
+        handleOutline.setColor(Color.BLACK);
+        boxPaint.setStyle(Paint.Style.STROKE);
+        boxPaint.setColor(0xFFFF9100);
+        loupeBorder.setStyle(Paint.Style.STROKE);
+        loupeBorder.setStrokeWidth(2 * density);
+        loupeBorder.setColor(Color.WHITE);
+        loupeBorder.setShadowLayer(4 * density, 0, density, 0x80000000);
     }
 
     public void setFence(Fence f) {
@@ -119,6 +172,10 @@ public class FenceView extends View {
 
     public void setController(@Nullable TouchController c) {
         controller = c;
+    }
+
+    public void setSwipeListener(@Nullable SwipeListener l) {
+        swipeListener = l;
     }
 
     /** Zooms so the whole fence fits on screen. */
@@ -153,7 +210,14 @@ public class FenceView extends View {
         canvas.save();
         canvas.translate(tx, ty);
         canvas.scale(scale, scale);
+        drawContent(canvas, scale);
+        canvas.restore();
 
+        if (toolActive && showsLoupe()) drawLoupe(canvas);
+    }
+
+    /** Everything on the fence, in content coordinates. zoom is the current content-to-screen scale. */
+    private void drawContent(Canvas canvas, float zoom) {
         boolean layered = below != null;
 
         // As on the desktop, the picture lies under the grid lines and the strips.
@@ -169,7 +233,7 @@ public class FenceView extends View {
                 drawEdge(canvas, se.cellX(), se.cellY(), se.getSlope(), selectedEdgePaint);
             }
         } else {
-            for (Strip s : below.getStrips()) drawStrip(canvas, s, 1f);
+            for (Strip s : below.getStrips()) drawStrip(canvas, s, 1f, false, zoom);
         }
 
         float baseAlpha = layered ? 0.5f : 0.75f;
@@ -184,26 +248,60 @@ public class FenceView extends View {
         Modification am = State.activeModification;
         for (Strip s : fence.getStrips()) {
             float a = baseAlpha;
-            boolean selected = false;
-            if (!layered) {
-                boolean inSelection = State.selectedStrips.contains(s);
-                boolean beingSelected = am instanceof SelectStripsModification
-                        && ((SelectStripsModification) am).getStrips().contains(s);
-                if (inSelection && !(am instanceof MoveModification)) a = 0.5f;
-                if (beingSelected) a = 0.5f;
-                // Outline and shadow also while moving, so the dragged strips stay easy to see.
-                selected = inSelection || beingSelected;
-            }
-            drawStrip(canvas, s, a, selected);
+            boolean selected = !layered && State.selectedStrips.contains(s);
+            if (selected && !(am instanceof MoveModification)) a = 0.5f;
+            // Outline and shadow also while moving, so the dragged strips stay easy to see.
+            drawStrip(canvas, s, a, selected, zoom);
         }
 
-        if (!layered && State.activeStrip != null) drawStrip(canvas, State.activeStrip, 0.75f, false);
+        if (!layered && State.activeStrip != null) drawStrip(canvas, State.activeStrip, 0.75f, false, zoom);
 
         if (!layered && State.getMode() == State.Mode.PICTURE && State.showingPic && picture != null) {
-            drawHandles(canvas, picture);
+            drawHandles(canvas, picture, zoom);
         }
 
+        float[] box = State.selectionBox;
+        if (!layered && box != null) {
+            boxPaint.setStrokeWidth(2 * density / zoom);
+            boxPaint.setPathEffect(new DashPathEffect(new float[]{6 * density / zoom, 4 * density / zoom}, 0));
+            canvas.drawRect(box[0], box[1], box[2], box[3], boxPaint);
+        }
+    }
+
+    private boolean showsLoupe() {
+        State.Mode m = State.getMode();
+        return controller != null && m != State.Mode.PICTURE && !State.boxSelect;
+    }
+
+    /**
+     * A round magnifier above the finger, so the edge under the fingertip stays visible.
+     * Below the finger instead when there is no room above.
+     */
+    private void drawLoupe(Canvas canvas) {
+        float r = LOUPE_RADIUS_DP * density;
+        float cx = lastX;
+        float cy = lastY - LOUPE_OFFSET_DP * density;
+        if (cy - r < 0) cy = lastY + LOUPE_OFFSET_DP * density;
+        cx = Math.max(r, Math.min(getWidth() - r, cx));
+
+        float zoom = Math.max(scale * 2f, LOUPE_MIN_CELL_DP * density / S);
+        float fx = (lastX - tx) / scale, fy = (lastY - ty) / scale;   // content point under the finger
+
+        loupeClip.reset();
+        loupeClip.addCircle(cx, cy, r, Path.Direction.CW);
+        canvas.save();
+        canvas.clipPath(loupeClip);
+        canvas.drawColor(BACKGROUND);
+        canvas.translate(cx, cy);
+        canvas.scale(zoom, zoom);
+        canvas.translate(-fx, -fy);
+        drawContent(canvas, zoom);
         canvas.restore();
+
+        canvas.drawCircle(cx, cy, r, loupeBorder);
+        float c = 6 * density;
+        canvas.drawLine(cx - c, cy, cx + c, cy, loupeBorder);
+        canvas.drawLine(cx, cy - c, cx, cy + c, loupeBorder);
     }
 
     private void drawPicture(Canvas canvas, Picture p) {
@@ -211,6 +309,7 @@ public class FenceView extends View {
         if (bmp == null) return;
         double[] c = p.getCorners();
         pictureRect.set((float) (c[0] * S), (float) (c[1] * S), (float) (c[2] * S), (float) (c[3] * S));
+        picturePaint.setAlpha(Math.round(255 * State.pictureOpacity));
         canvas.drawBitmap(bmp, null, pictureRect, picturePaint);
     }
 
@@ -218,7 +317,7 @@ public class FenceView extends View {
      * Corner handles in Picture mode, like the desktop's unused Corner class:
      * white squares, cyan for the corner being dragged. Sized in dp, so they ignore zoom.
      */
-    private void drawHandles(Canvas canvas, Picture p) {
+    private void drawHandles(Canvas canvas, Picture p, float zoom) {
         double[] c = p.getCorners();
         float[][] corners = {
                 {(float) c[0] * S, (float) c[1] * S}, {(float) c[2] * S, (float) c[1] * S},
@@ -230,8 +329,8 @@ public class FenceView extends View {
             if (m.isResizing()) active = m.getCorner();
         }
 
-        float half = HANDLE_DP * density / scale / 2f;
-        handleOutline.setStrokeWidth(1.5f * density / scale);
+        float half = HANDLE_DP * density / zoom / 2f;
+        handleOutline.setStrokeWidth(1.5f * density / zoom);
         for (int i = 0; i < 4; i++) {
             float x = corners[i][0], y = corners[i][1];
             handleFill.setColor(i == active ? Color.CYAN : Color.WHITE);
@@ -240,16 +339,12 @@ public class FenceView extends View {
         }
     }
 
-    private void drawStrip(Canvas canvas, Strip s, float alpha) {
-        drawStrip(canvas, s, alpha, false);
-    }
-
-    private void drawStrip(Canvas canvas, Strip s, float alpha, boolean selected) {
+    private void drawStrip(Canvas canvas, Strip s, float alpha, boolean selected, float zoom) {
         int col = State.inverted ? invert(s.getColor()) : s.getColor();
         stripPaint.setColor(col);
         stripPaint.setAlpha(Math.round(Color.alpha(col) * alpha));
         if (selected) {
-            renderer.drawSelected(canvas, s, stripPaint, scale);
+            renderer.drawSelected(canvas, s, stripPaint, zoom);
         } else {
             renderer.draw(canvas, s, stripPaint);
         }
@@ -313,16 +408,23 @@ public class FenceView extends View {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 multiTouch = false;
-                toolActive = controller != null
-                        && controller.onDown(toContentX(e.getX()), toContentY(e.getY()),
-                        HANDLE_TOUCH_DP * density / scale);
+                dragging = false;
+                downX = lastX = e.getX();
+                downY = lastY = e.getY();
+                toolActive = controller != null && controller.onDown(
+                        toContentX(downX), toContentY(downY), HANDLE_TOUCH_DP * density / scale);
+                panning = !toolActive;
+                if (toolActive) postDelayed(longPress, longPressTimeout);
+                invalidate();
                 return true;
 
             case MotionEvent.ACTION_POINTER_DOWN:
+                removeCallbacks(longPress);
                 if (toolActive) {
                     controller.onCancel();
                     toolActive = false;
                 }
+                panning = false;
                 multiTouch = true;
                 resetPinch(e, -1);
                 return true;
@@ -330,12 +432,30 @@ public class FenceView extends View {
             case MotionEvent.ACTION_MOVE:
                 if (multiTouch) {
                     pinch(e);
-                } else if (toolActive) {
-                    // Replay batched samples so fast swipes do not skip edges.
-                    for (int h = 0; h < e.getHistorySize(); h++) {
-                        controller.onMove(toContentX(e.getHistoricalX(h)), toContentY(e.getHistoricalY(h)));
+                    return true;
+                }
+                float x = e.getX(), y = e.getY();
+                if (!dragging && Math.hypot(x - downX, y - downY) > touchSlop) {
+                    dragging = true;
+                    removeCallbacks(longPress);
+                }
+                if (toolActive) {
+                    lastX = x;
+                    lastY = y;
+                    if (dragging) {
+                        // Replay batched samples so fast swipes do not skip edges.
+                        for (int h = 0; h < e.getHistorySize(); h++) {
+                            controller.onMove(toContentX(e.getHistoricalX(h)), toContentY(e.getHistoricalY(h)));
+                        }
+                        controller.onMove(toContentX(x), toContentY(y));
                     }
-                    controller.onMove(toContentX(e.getX()), toContentY(e.getY()));
+                    invalidate();
+                } else if (panning && dragging && swipeListener == null) {
+                    tx += x - lastX;
+                    ty += y - lastY;
+                    lastX = x;
+                    lastY = y;
+                    invalidate();
                 }
                 return true;
 
@@ -344,16 +464,25 @@ public class FenceView extends View {
                 return true;
 
             case MotionEvent.ACTION_UP:
-                if (toolActive) controller.onUp();
+                removeCallbacks(longPress);
+                boolean tap = !dragging && !multiTouch;
+                if (toolActive) controller.onUp(tap);
+                if (panning && swipeListener != null && !multiTouch) checkSwipe(e.getX(), e.getY());
                 toolActive = false;
+                panning = false;
                 multiTouch = false;
+                if (tap) checkDoubleTap(e.getX(), e.getY());
                 performClick();
+                invalidate();
                 return true;
 
             case MotionEvent.ACTION_CANCEL:
+                removeCallbacks(longPress);
                 if (toolActive) controller.onCancel();
                 toolActive = false;
+                panning = false;
                 multiTouch = false;
+                invalidate();
                 return true;
         }
         return super.onTouchEvent(e);
@@ -362,6 +491,32 @@ public class FenceView extends View {
     @Override
     public boolean performClick() {
         return super.performClick();
+    }
+
+    private void fireLongPress() {
+        if (toolActive && !dragging && controller.onLongPress()) {
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            invalidate();
+        }
+    }
+
+    private void checkDoubleTap(float x, float y) {
+        long now = System.currentTimeMillis();
+        if (now - lastTapTime < doubleTapTimeout && Math.hypot(x - lastTapX, y - lastTapY) < doubleTapSlop) {
+            fitToView();
+            lastTapTime = 0;
+        } else {
+            lastTapTime = now;
+            lastTapX = x;
+            lastTapY = y;
+        }
+    }
+
+    private void checkSwipe(float x, float y) {
+        float dx = x - downX, dy = y - downY;
+        if (Math.abs(dx) > SWIPE_MIN_DP * density && Math.abs(dx) > 2 * Math.abs(dy)) {
+            swipeListener.onSwipe(dx < 0 ? 1 : -1);
+        }
     }
 
     /** Records the focus and span of the first two pointers, skipping the one being lifted. */

@@ -19,9 +19,7 @@ public class ChangeColorModification extends Modification {
 
     @Override
     public void perform() {
-        for (Strip strip : State.selectedStrips) {
-            strip.setColor(color);
-        }
+        for (Strip s : strips.keySet()) s.setColor(color);
     }
 
     @Override

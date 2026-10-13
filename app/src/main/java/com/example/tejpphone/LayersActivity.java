@@ -18,6 +18,7 @@ import com.example.tejpphone.model.Fence;
 import com.example.tejpphone.model.NormalFence;
 import com.example.tejpphone.view.FenceView;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.util.List;
 import java.util.Locale;
@@ -36,6 +37,8 @@ public class LayersActivity extends AppCompatActivity {
     private FenceView fenceView;
     private TextView label;
     private MaterialButton prev, next;
+    /** Static so it is remembered between visits. */
+    private static boolean showBelow = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,9 +88,32 @@ public class LayersActivity extends AppCompatActivity {
         closeParams.setMarginStart(pad);
         bar.addView(close, closeParams);
 
+        // Second row: show or hide the layers underneath, and a hint about swiping.
+        LinearLayout options = new LinearLayout(this);
+        options.setOrientation(LinearLayout.HORIZONTAL);
+        options.setGravity(Gravity.CENTER_VERTICAL);
+        options.setPadding(pad * 2, 0, pad * 2, 0);
+        MaterialSwitch belowSwitch = new MaterialSwitch(this);
+        belowSwitch.setText("Show layers below");
+        belowSwitch.setTextColor(0xFFFFFFFF);
+        belowSwitch.setChecked(showBelow);
+        belowSwitch.setOnCheckedChangeListener((b, on) -> {
+            showBelow = on;
+            show(index);
+        });
+        TextView hint = new TextView(this);
+        hint.setText("Swipe sideways to change layer");
+        hint.setTextColor(0xB3FFFFFF);
+        hint.setGravity(Gravity.END);
+        options.addView(belowSwitch);
+        options.addView(hint, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
         fenceView = new FenceView(this);
+        fenceView.setSwipeListener(direction -> show(index + direction));
 
         root.addView(bar, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        root.addView(options, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         root.addView(fenceView, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -106,9 +132,12 @@ public class LayersActivity extends AppCompatActivity {
         index = Math.max(0, Math.min(i, layers.size() - 1));
         Fence layer = layers.get(index);
 
+        // An empty "below" still draws the layer the layered way, at half strength.
         Fence below = new NormalFence(layer.width, layer.height);
-        for (int n = 0; n < index; n++) {
-            below.getStrips().addAll(layers.get(n).getStrips());
+        if (showBelow) {
+            for (int n = 0; n < index; n++) {
+                below.getStrips().addAll(layers.get(n).getStrips());
+            }
         }
 
         fenceView.setFence(layer);

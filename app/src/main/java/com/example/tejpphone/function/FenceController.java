@@ -12,17 +12,36 @@ import java.util.HashSet;
 import java.util.LinkedList;
 
 /**
- * Port of the desktop FenceListener, minus the auto* functions and all file and picture handling.
- * One finger on the canvas plays the role of the mouse. Toolbar chips replace the keyboard shortcuts.
+ * Port of the desktop FenceListener. One finger on the canvas plays the role of the mouse.
+ *
+ * <p>Gestures that replace the desktop's Shift and Ctrl keys:
+ * <ul>
+ *   <li>Draw: hold a finger on the end of a strip, then drag, to move that end.</li>
+ *   <li>Edit: tap a strip to add it to or remove it from the selection; tap empty space to clear
+ *       the selection; drag to paint strips into the selection; with Box select on, drag a box.</li>
+ * </ul>
  */
 public class FenceController implements FenceView.TouchController {
 
     private static final int S = Fence.CELL_SIZE;
 
     private final Runnable repaint;
+    private Runnable snapFeedback = () -> {};
+
+    /** Draw: the strip whose end the finger came down on, for a long press. */
+    private Strip longPressCandidate;
+    /** Edit gesture state. */
+    private Strip tapStrip;
+    private float downX, downY;
+    private boolean editDragging;
 
     public FenceController(Runnable repaint) {
         this.repaint = repaint;
+    }
+
+    /** Called each time a stroke or move snaps to a new edge, for a haptic tick. */
+    public void setSnapFeedback(Runnable r) {
+        snapFeedback = r;
     }
 
     private Fence fence() {
@@ -36,8 +55,14 @@ public class FenceController implements FenceView.TouchController {
         return onDown(x, y, 0f);
     }
 
+    /** onUp after a drag, for tests. */
+    public void onUp() {
+        onUp(false);
+    }
+
     @Override
     public boolean onDown(float x, float y, float touchRadius) {
+        if (State.activeModification != null) return false;
         if (State.getMode() == State.Mode.PICTURE) return pictureDown(x, y, touchRadius);
 
         Fence f = fence();
@@ -47,13 +72,42 @@ public class FenceController implements FenceView.TouchController {
 
         Edge e = f.getEdgeAt(cx, cy);
         if (e != null) edgeEntered(e);
-        if (State.selectedEdge == null) return false;
 
-        mousePressed(x, y);
+        switch (State.getMode()) {
+            case DRAWING: {
+                Edge edge = State.selectedEdge;
+                if (edge == null) return false;
+                State.activeStrip = new Strip(edge, edge, State.currentStripWidth,
+                        f.getType(), State.currentColor);
+                State.activeModification = new AddStripModification(f);
+                longPressCandidate = null;
+                for (Strip s : f.getStrips()) {
+                    if (edge.equals(s.getStart()) || edge.equals(s.getEnd())) longPressCandidate = s;
+                }
+                break;
+            }
+            case EDITING:
+                State.activeModification = new SelectionChange();
+                tapStrip = topmostStripAt(x, y);
+                downX = x;
+                downY = y;
+                editDragging = false;
+                if (State.boxSelect) State.selectionBox = new float[]{x, y, x, y};
+                break;
+
+            case MOVING:
+                if (State.selectedEdge == null) return false;
+                State.activeModification = new MoveModification(State.selectedEdge);
+                break;
+
+            default:
+                return false;
+        }
         repaint.run();
         return true;
     }
 
+    /** Called once the finger has moved further than a tap would. */
     @Override
     public void onMove(float x, float y) {
         if (State.activeModification instanceof MovePicModification) {
@@ -61,15 +115,38 @@ public class FenceController implements FenceView.TouchController {
             repaint.run();
             return;
         }
+        if (State.activeModification instanceof SelectionChange) {
+            editDrag(x, y);
+            repaint.run();
+            return;
+        }
         Edge e = fence().edgeAtOrNull((int) Math.floor(x / S), (int) Math.floor(y / S));
         if (e != null) edgeEntered(e);
-        mouseDragged(x, y);
         repaint.run();
     }
 
+    /** @param tap true if the finger never moved further than a tap */
     @Override
-    public void onUp() {
-        mouseReleased();
+    public void onUp(boolean tap) {
+        Modification m = State.activeModification;
+        if (m instanceof SelectionChange && tap) {
+            if (tapStrip == null) {
+                State.selectedStrips.clear();
+            } else if (!State.selectedStrips.remove(tapStrip)) {
+                State.selectedStrips.add(tapStrip);
+            }
+        }
+        // A new strip from a plain tap has no length, so it is not added at all.
+        boolean skip = m instanceof AddStripModification && !m.isValid();
+        if (m != null && !skip) {
+            m.perform();
+            History.addAction(m);
+        }
+        State.activeModification = null;
+        State.activeStrip = null;
+        State.selectionBox = null;
+        longPressCandidate = null;
+        tapStrip = null;
         repaint.run();
     }
 
@@ -78,7 +155,66 @@ public class FenceController implements FenceView.TouchController {
         if (State.activeModification != null) State.activeModification.cancel();
         State.activeModification = null;
         State.activeStrip = null;
+        State.selectionBox = null;
+        longPressCandidate = null;
         repaint.run();
+    }
+
+    /**
+     * Draw: a finger held still on the end of an existing strip switches from drawing a new strip
+     * to moving that end. Replaces the desktop's Shift-drag.
+     * @return true if it switched, so the view can give haptic feedback
+     */
+    @Override
+    public boolean onLongPress() {
+        Strip s = longPressCandidate;
+        if (s == null || !(State.activeModification instanceof AddStripModification)
+                || State.activeStrip == null || State.activeStrip.getStart() != State.activeStrip.getEnd()) {
+            return false;
+        }
+        s.edgeSelected(State.selectedEdge);   // makes the touched end the strip's end
+        State.activeStrip = s;
+        State.activeModification = new EdgeMovedModification();
+        longPressCandidate = null;
+        repaint.run();
+        return true;
+    }
+
+    private void editDrag(float x, float y) {
+        if (State.boxSelect) {
+            State.selectionBox = new float[]{
+                    Math.min(downX, x), Math.min(downY, y), Math.max(downX, x), Math.max(downY, y)};
+            // A box replaces the selection, so it is quick to pick a fresh area.
+            State.selectedStrips = stripsInBox(State.selectionBox);
+            return;
+        }
+        if (!editDragging) {
+            editDragging = true;
+            addStripsAt(downX, downY);
+        }
+        addStripsAt(x, y);
+    }
+
+    private Strip topmostStripAt(float x, float y) {
+        Strip top = null;
+        for (Strip s : fence().getStrips()) {
+            if (s.contains(x, y)) top = s;
+        }
+        return top;
+    }
+
+    private void addStripsAt(float x, float y) {
+        for (Strip s : fence().getStrips()) {
+            if (s.contains(x, y)) State.selectedStrips.add(s);
+        }
+    }
+
+    private HashSet<Strip> stripsInBox(float[] b) {
+        HashSet<Strip> found = new HashSet<>();
+        for (Strip s : fence().getStrips()) {
+            if (s.intersectsRect(b[0], b[1], b[2], b[3])) found.add(s);
+        }
+        return found;
     }
 
     /**
@@ -121,70 +257,19 @@ public class FenceController implements FenceView.TouchController {
 
         if (State.activeStrip != null && State.getMode() == State.Mode.DRAWING) {
             State.activeStrip.setEnd(edge);
+            snapFeedback.run();
         }
         if (State.activeModification instanceof MoveModification && State.getMode() == State.Mode.MOVING) {
-            ((MoveModification) State.activeModification).move(edge);
+            MoveModification m = (MoveModification) State.activeModification;
+            long before = m.offsetKey();
+            m.move(edge);
+            if (m.offsetKey() != before) snapFeedback.run();
         }
-    }
-
-    private void mousePressed(float x, float y) {
-        Edge edge = State.selectedEdge;
-
-        switch (State.getMode()) {
-            case DRAWING:
-                if (!State.shiftPressed) {
-                    State.activeStrip = new Strip(edge, edge, State.currentStripWidth,
-                            fence().getType(), State.currentColor);
-                    State.activeModification = new AddStripModification(fence());
-                } else {
-                    for (Strip s : fence().getStrips()) {
-                        if (s.edgeSelected(edge)) State.activeStrip = s;
-                    }
-                    if (State.activeStrip != null) State.activeModification = new EdgeMovedModification();
-                }
-                break;
-
-            case EDITING:
-                State.activeModification = new SelectStripsModification();
-                addStripsAt(x, y);
-                break;
-
-            case MOVING:
-                State.activeModification = new MoveModification(edge);
-                break;
-
-            case PICTURE:
-                break;   // Handled in pictureDown.
-        }
-    }
-
-    private void mouseDragged(float x, float y) {
-        if (State.getMode() == State.Mode.EDITING && State.shiftPressed
-                && State.activeModification instanceof SelectStripsModification) {
-            addStripsAt(x, y);
-        }
-    }
-
-    private void mouseReleased() {
-        if (State.activeModification != null) {
-            State.activeModification.perform();
-            History.addAction(State.activeModification);
-            State.activeModification = null;
-            State.activeStrip = null;
-        }
-    }
-
-    private void addStripsAt(float x, float y) {
-        HashSet<Strip> strips = new HashSet<>();
-        for (Strip strip : fence().getStrips()) {
-            if (strip.contains(x, y)) strips.add(strip);
-        }
-        ((SelectStripsModification) State.activeModification).addStripToSelection(strips);
     }
 
     // ------------------------------------------------------------------ toolbar (was buttons and keys)
 
-    /** Draw / Edit / Move tool buttons. */
+    /** Tool buttons. */
     public void setMode(State.Mode mode) {
         State.setMode(mode);
         endAutoSession();
@@ -192,10 +277,15 @@ public class FenceController implements FenceView.TouchController {
         repaint.run();
     }
 
-    /** Key z. */
+    /** Key z. Not during a touch gesture. */
     public void undo() {
-        Modification m = History.lastMod();
-        if (m != null) m.revert();
+        if (State.activeModification == null) History.undo();
+        repaint.run();
+    }
+
+    /** New: the desktop had no redo. */
+    public void redo() {
+        if (State.activeModification == null) History.redo();
         repaint.run();
     }
 
@@ -272,7 +362,25 @@ public class FenceController implements FenceView.TouchController {
         repaint.run();
     }
 
-    /** Key d: deselect everything (keeps the selection if Ctrl is on, as on the desktop). */
+    /** Edit: dragging draws a box instead of painting a selection. */
+    public void setBoxSelect(boolean on) {
+        State.boxSelect = on;
+    }
+
+    /** Remembers a colour from the colour picker, newest first. */
+    public void addCustomColor(int color) {
+        State.customColors.remove((Integer) color);
+        State.customColors.add(0, color);
+        while (State.customColors.size() > State.MAX_CUSTOM_COLORS) {
+            State.customColors.remove(State.customColors.size() - 1);
+        }
+    }
+
+    public void removeCustomColor(int color) {
+        State.customColors.remove((Integer) color);
+    }
+
+    /** Key d: deselect everything. */
     public void deselectAll() {
         if (State.activeModification == null) {
             SelectStripsModification mod = new SelectStripsModification();
@@ -353,6 +461,15 @@ public class FenceController implements FenceView.TouchController {
         mod.perform();
         History.addAction(mod);
         repaint.run();
+    }
+
+    public void setPictureOpacity(float opacity) {
+        State.pictureOpacity = opacity;
+        repaint.run();
+    }
+
+    public void setKeepPictureAspect(boolean keep) {
+        State.keepPictureAspect = keep;
     }
 
     /** Desktop "pic2" button. */

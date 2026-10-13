@@ -13,10 +13,9 @@ import java.util.HashSet;
 /** Mirrors the selected strips left to right around their own centre. */
 public class MirrorModification extends TransformStripsModification {
 
-    @SuppressWarnings("unchecked")
     public MirrorModification(Fence f) {
         fence = f;
-        oldStrips = (HashSet<Strip>) State.selectedStrips.clone();
+        oldStrips = new HashSet<>(State.selectedStrips);
         newStrips = new HashSet<>();
     }
 
@@ -25,8 +24,17 @@ public class MirrorModification extends TransformStripsModification {
         return !oldStrips.isEmpty();
     }
 
+    /** Computes the mirrored strips once, so redo puts back the same strip objects. */
     @Override
     public void perform() {
+        if (newStrips.isEmpty()) mirror();
+        fence.getStrips().removeAll(oldStrips);
+        fence.getStrips().addAll(newStrips);
+        State.selectedStrips.removeAll(oldStrips);
+        State.selectedStrips.addAll(newStrips);
+    }
+
+    private void mirror() {
         int midX = calcMiddle();
 
         for (Strip s : oldStrips) {
@@ -80,11 +88,6 @@ public class MirrorModification extends TransformStripsModification {
             // The desktop left out the colour here, so mirrored strips turned white.
             newStrips.add(new Strip(onGrid(newStart), onGrid(newEnd), s.getWidth(), fence.getType(), s.getColor()));
         }
-
-        fence.getStrips().removeAll(oldStrips);
-        fence.getStrips().addAll(newStrips);
-        State.selectedStrips.removeAll(oldStrips);
-        State.selectedStrips.addAll(newStrips);
     }
 
     @Override

@@ -24,9 +24,7 @@ public class ChangeWidthModification extends Modification {
 
     @Override
     public void perform() {
-        for (Strip strip : State.selectedStrips) {
-            strip.setWidth(width);
-        }
+        for (Strip s : strips.keySet()) s.setWidth(width);
     }
 
     @Override

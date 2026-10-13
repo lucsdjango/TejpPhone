@@ -4,8 +4,10 @@ import com.example.tejpphone.model.Edge;
 import com.example.tejpphone.model.Fence;
 import com.example.tejpphone.model.Strip;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -83,7 +85,22 @@ public final class State {
     public static Modification activeModification;
 
     public static boolean inverted = false;
-    public static boolean shiftPressed, ctrlPressed;
+    /** Colours the user added in the colour picker, newest first. Saved between runs. */
+    public static final List<Integer> customColors = new ArrayList<>();
+    public static final int MAX_CUSTOM_COLORS = 8;
+
+    /** How opaque the picture is drawn on screen, 0 to 1. */
+    public static float pictureOpacity = 1f;
+    /** Resizing the picture keeps its width-to-height ratio. */
+    public static boolean keepPictureAspect = false;
+
+    /** In Edit mode, dragging draws a box instead of painting a selection. */
+    public static boolean boxSelect = false;
+    /** The box being dragged, as {left, top, right, bottom} in content units, or null. */
+    public static float[] selectionBox;
+
+    /** The auto strips panel is open in Picture mode. */
+    public static boolean autoPanelOpen = false;
 
     private static Mode mode = Mode.DRAWING;
 

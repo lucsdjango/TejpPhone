@@ -18,6 +18,7 @@ import com.example.tejpphone.model.VerticalFence;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
@@ -34,8 +35,8 @@ public class TejpModelTest {
         State.selectedEdge = null;
         State.activeStrip = null;
         State.activeModification = null;
-        State.shiftPressed = false;
-        State.ctrlPressed = false;
+        State.boxSelect = false;
+        State.selectionBox = null;
         State.currentStripWidth = 1f;
         State.currentColor = State.WHITE;
         State.setMode(State.Mode.DRAWING);
@@ -95,21 +96,80 @@ public class TejpModelTest {
         assertEquals(null, State.activeModification);
     }
 
+    private Strip draw(int x0, int y0, int x1, int y1) {
+        controller.onDown(c(x0), c(y0));
+        controller.onMove(c(x1), c(y1));
+        controller.onUp();
+        return State.fence.getStrips().getLast();
+    }
+
+    private void tap(float x, float y) {
+        controller.onDown(x, y);
+        controller.onUp(true);
+    }
+
     @Test
-    public void tapInEditModeSelectsTheStripUnderTheFinger() {
-        controller.onDown(c(2), c(4));
-        controller.onMove(c(8), c(4));
-        controller.onUp();
-        Strip s = State.fence.getStrips().getFirst();
+    public void tapInDrawModeAddsNothing() {
+        tap(c(4), c(4));
+        assertTrue(State.fence.getStrips().isEmpty());
+        assertFalse(History.canUndo());
+    }
 
+    @Test
+    public void tapsInEditModeAddAndRemoveStrips() {
+        Strip a = draw(2, 4, 8, 4);
+        Strip b = draw(2, 10, 8, 10);
         controller.setMode(State.Mode.EDITING);
-        controller.onDown(c(5), 4 * S + S / 2f);
-        controller.onUp();
-        assertTrue(State.selectedStrips.contains(s));
 
-        controller.onDown(c(5), c(15));
-        controller.onUp();
-        assertFalse(State.selectedStrips.contains(s));
+        tap(c(5), c(4));
+        tap(c(5), c(10));
+        assertTrue(State.selectedStrips.contains(a));
+        assertTrue(State.selectedStrips.contains(b));
+
+        tap(c(5), c(4));   // a second tap removes it again
+        assertFalse(State.selectedStrips.contains(a));
+        assertTrue(State.selectedStrips.contains(b));
+
+        tap(c(5), c(16));  // empty space clears the selection
+        assertTrue(State.selectedStrips.isEmpty());
+
+        controller.undo();
+        assertEquals(1, State.selectedStrips.size());
+        controller.redo();
+        assertTrue(State.selectedStrips.isEmpty());
+    }
+
+    @Test
+    public void dragInEditModePaintsTheSelection() {
+        Strip a = draw(2, 4, 8, 4);
+        Strip b = draw(2, 10, 8, 10);
+        Strip c = draw(12, 16, 18, 16);
+        controller.setMode(State.Mode.EDITING);
+
+        controller.onDown(c(5), c(4));
+        controller.onMove(c(5), c(7));
+        controller.onMove(c(5), c(10));
+        controller.onUp(false);
+        assertTrue(State.selectedStrips.contains(a));
+        assertTrue(State.selectedStrips.contains(b));
+        assertFalse(State.selectedStrips.contains(c));
+    }
+
+    @Test
+    public void boxSelectPicksStripsInsideTheBox() {
+        Strip a = draw(2, 4, 8, 4);
+        Strip b = draw(2, 10, 8, 10);
+        Strip c = draw(12, 16, 18, 16);
+        controller.setMode(State.Mode.EDITING);
+        controller.setBoxSelect(true);
+
+        controller.onDown(c(1), c(2));
+        controller.onMove(c(9), c(11));
+        assertTrue(State.selectionBox != null);
+        controller.onUp(false);
+        assertEquals(new HashSet<>(Arrays.asList(a, b)), State.selectedStrips);
+        assertTrue(State.selectionBox == null);
+        assertFalse(State.selectedStrips.contains(c));
     }
 
     @Test
@@ -317,17 +377,125 @@ public class TejpModelTest {
     }
 
     @Test
-    public void shiftDragMovesTheEndOfAnExistingStrip() {
+    public void longPressOnAStripEndDragsThatEnd() {
         Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(8, 4), 1f, NormalFence.TYPE);
         State.fence.addStrip(s);
-        State.shiftPressed = true;
 
-        controller.onDown(c(8), c(4));
-        controller.onMove(c(12), c(4));
+        controller.onDown(c(2), c(4));     // the start end
+        assertTrue(controller.onLongPress());
+        controller.onMove(c(0), c(4));
         controller.onUp();
-        assertSame(State.fence.getEdgeAt(12, 4), s.getEnd());
+        assertEquals(1, State.fence.getStrips().size());
+        assertTrue(s.getStart() == State.fence.getEdgeAt(0, 4) || s.getEnd() == State.fence.getEdgeAt(0, 4));
+        assertTrue(s.getStart() == State.fence.getEdgeAt(8, 4) || s.getEnd() == State.fence.getEdgeAt(8, 4));
 
         controller.undo();
-        assertSame(State.fence.getEdgeAt(8, 4), s.getEnd());
+        assertTrue(s.getStart() == State.fence.getEdgeAt(2, 4) || s.getEnd() == State.fence.getEdgeAt(2, 4));
+        controller.redo();
+        assertTrue(s.getStart() == State.fence.getEdgeAt(0, 4) || s.getEnd() == State.fence.getEdgeAt(0, 4));
+    }
+
+    @Test
+    public void longPressAwayFromStripEndsDoesNothing() {
+        controller.onDown(c(4), c(4));
+        assertFalse(controller.onLongPress());
+        controller.onCancel();
+    }
+
+    // ------------------------------------------------------------------ redo
+
+    @Test
+    public void redoAfterUndoForDrawMoveMirrorCopyDelete() {
+        Strip s = draw(2, 14, 8, 14);
+        controller.undo();
+        assertTrue(State.fence.getStrips().isEmpty());
+        controller.redo();
+        assertEquals(1, State.fence.getStrips().size());
+
+        State.selectedStrips.add(s);
+        controller.setMode(State.Mode.MOVING);
+        controller.onDown(c(10), c(2));
+        controller.onMove(c(10), c(6));
+        controller.onUp();
+        assertSame(State.fence.getEdgeAt(2, 18), s.getStart());
+        controller.undo();
+        assertSame(State.fence.getEdgeAt(2, 14), s.getStart());
+        controller.redo();
+        assertSame(State.fence.getEdgeAt(2, 18), s.getStart());
+
+        controller.mirrorSelected();
+        Strip m = State.fence.getStrips().getFirst();
+        controller.undo();
+        controller.redo();
+        assertSame(m, State.fence.getStrips().getFirst());
+        assertEquals(1, State.fence.getStrips().size());
+
+        controller.copySelected();
+        assertEquals(2, State.fence.getStrips().size());
+        controller.undo();
+        controller.redo();
+        assertEquals(2, State.fence.getStrips().size());
+
+        controller.deleteSelected();
+        assertEquals(1, State.fence.getStrips().size());
+        controller.undo();
+        controller.redo();
+        assertEquals(1, State.fence.getStrips().size());
+    }
+
+    @Test
+    public void newActionClearsRedo() {
+        draw(2, 4, 8, 4);
+        controller.undo();
+        assertTrue(History.canRedo());
+        draw(2, 8, 8, 8);
+        assertFalse(History.canRedo());
+    }
+
+    @Test
+    public void widthAndColourRedo() {
+        Strip s = draw(2, 4, 8, 4);
+        State.selectedStrips.add(s);
+        controller.setColor(State.GREEN);
+        controller.setWidth(3f);
+        controller.undo();
+        controller.undo();
+        assertEquals(Strip.WHITE, s.getColor());
+        controller.redo();
+        controller.redo();
+        assertEquals(State.GREEN, s.getColor());
+        assertEquals(3f, s.getWidth(), 0f);
+    }
+
+    // ------------------------------------------------------------------ unsaved changes
+
+    @Test
+    public void unsavedChangesAreTrackedButSelectionDoesNotCount() {
+        assertFalse(History.isDirty());
+        Strip s = draw(2, 4, 8, 4);
+        assertTrue(History.isDirty());
+
+        History.markSaved(History.currentState());
+        assertFalse(History.isDirty());
+
+        controller.setMode(State.Mode.EDITING);
+        tap(c(5), c(4));
+        assertTrue(State.selectedStrips.contains(s));
+        assertFalse(History.isDirty());   // selecting is not an edit
+
+        controller.setMode(State.Mode.DRAWING);
+        draw(2, 10, 8, 10);
+        assertTrue(History.isDirty());
+        controller.undo();
+        controller.undo();   // the selection clearing when Draw was chosen
+        assertFalse(History.isDirty());   // back where it was saved
+    }
+
+    @Test
+    public void markDirtySurvivesUntilSaved() {
+        History.markDirty();
+        assertTrue(History.isDirty());
+        History.markSaved(History.currentState());
+        assertFalse(History.isDirty());
     }
 }

@@ -8,14 +8,16 @@ import java.util.HashSet;
 /** Drags the selected strips across the grid (Move tool). */
 public class MoveModification extends TransformStripsModification {
 
+    /** Offset reached so far in the live drag. */
     private int lastx, lasty;
+    /** Offset when the drag ended, for undo and redo. */
+    private int appliedX, appliedY;
     private final Edge initEdge;
 
-    @SuppressWarnings("unchecked")
     public MoveModification(Edge e) {
         initEdge = e;
         fence = State.fence;
-        oldStrips = (HashSet<Strip>) State.selectedStrips.clone();
+        oldStrips = new HashSet<>(State.selectedStrips);
     }
 
     /**
@@ -25,7 +27,7 @@ public class MoveModification extends TransformStripsModification {
      */
     @Override
     public boolean isValid() {
-        return lastx != 0 || lasty != 0;
+        return appliedX != 0 || appliedY != 0;
     }
 
     public void move(Edge e) {
@@ -40,12 +42,15 @@ public class MoveModification extends TransformStripsModification {
 
         if ((minX + horShift) > 0 && (maxX + horShift) < (fence.width - 1)
                 && canShiftAll(horShift, vertShift)) {
-            for (Strip s : oldStrips) {
-                s.shift(horShift, vertShift, fence);
-            }
+            shiftAll(horShift, vertShift);
             lastx = dx;
             lasty = dy;
         }
+    }
+
+    /** Changes whenever the strips have actually moved, for haptic feedback. */
+    public long offsetKey() {
+        return ((long) lastx << 32) ^ (lasty & 0xFFFFFFFFL);
     }
 
     private boolean canShiftAll(int x, int y) {
@@ -55,26 +60,31 @@ public class MoveModification extends TransformStripsModification {
         return true;
     }
 
-    private void shiftBack() {
-        if (canShiftAll(-lastx, -lasty)) {
-            for (Strip s : oldStrips) {
-                s.shift(-lastx, -lasty, fence);
-            }
-        }
-        lastx = 0;
-        lasty = 0;
+    private void shiftAll(int x, int y) {
+        if (!canShiftAll(x, y)) return;
+        for (Strip s : oldStrips) s.shift(x, y, fence);
     }
 
     @Override
-    public void perform() {}
+    public void perform() {
+        appliedX = lastx;
+        appliedY = lasty;
+    }
 
     @Override
     public void revert() {
-        shiftBack();
+        shiftAll(-appliedX, -appliedY);
+    }
+
+    @Override
+    public void redo() {
+        shiftAll(appliedX, appliedY);
     }
 
     @Override
     public void cancel() {
-        shiftBack();
+        shiftAll(-lastx, -lasty);
+        lastx = 0;
+        lasty = 0;
     }
 }

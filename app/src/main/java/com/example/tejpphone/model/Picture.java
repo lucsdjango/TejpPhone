@@ -50,6 +50,11 @@ public final class Picture {
         return new Picture(img.width, img.height, img.argb, bmp, x0, y0, x3, y3);
     }
 
+    /** True if this picture came from a .tjp file, rather than from an image file. */
+    public boolean isFromTjp() {
+        return storedBmp != null;
+    }
+
     public boolean hasPixels() {
         return argb != null;
     }

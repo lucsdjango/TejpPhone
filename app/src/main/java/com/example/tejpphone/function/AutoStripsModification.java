@@ -13,6 +13,8 @@ public class AutoStripsModification extends Modification {
 
     private final Fence fence;
     private final LinkedList<Strip> oldStrips;
+    /** The strips when the session was undone, for redo. */
+    private LinkedList<Strip> newStrips;
 
     public AutoStripsModification(Fence f) {
         fence = f;
@@ -33,9 +35,17 @@ public class AutoStripsModification extends Modification {
 
     @Override
     public void revert() {
+        newStrips = new LinkedList<>(fence.getStrips());
         fence.getStrips().clear();
         fence.getStrips().addAll(oldStrips);
         State.selectedStrips.retainAll(oldStrips);
+    }
+
+    @Override
+    public void redo() {
+        fence.getStrips().clear();
+        fence.getStrips().addAll(newStrips);
+        State.selectedStrips.retainAll(newStrips);
     }
 
     @Override

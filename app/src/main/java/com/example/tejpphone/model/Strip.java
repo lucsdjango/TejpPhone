@@ -191,6 +191,29 @@ public class Strip {
         return Geometry.polygonContains(pols[0], px, py) || Geometry.polygonContains(pols[1], px, py);
     }
 
+    /** True if the strip outline overlaps the rectangle (content units). Used for box select. */
+    public boolean intersectsRect(double left, double top, double right, double bottom) {
+        if (right - left <= 0 || bottom - top <= 0) return false;
+        for (int[] pol : getPolygons()) {
+            if (pol == null) continue;
+            int n = pol.length / 2;
+            for (int i = 0; i < n; i++) {
+                double x = pol[2 * i], y = pol[2 * i + 1];
+                if (x >= left && x <= right && y >= top && y <= bottom) return true;
+                int j = (i + 1) % n;
+                double x2 = pol[2 * j], y2 = pol[2 * j + 1];
+                if (Geometry.linesIntersect(x, y, x2, y2, left, top, right, top)
+                        || Geometry.linesIntersect(x, y, x2, y2, right, top, right, bottom)
+                        || Geometry.linesIntersect(x, y, x2, y2, right, bottom, left, bottom)
+                        || Geometry.linesIntersect(x, y, x2, y2, left, bottom, left, top)) {
+                    return true;
+                }
+            }
+        }
+        // The box lies entirely inside the strip.
+        return contains((left + right) / 2, (top + bottom) / 2);
+    }
+
     /** If e is one of the strip's ends, make it the end and return true. */
     public boolean edgeSelected(Edge e) {
         if (e.equals(end)) {
