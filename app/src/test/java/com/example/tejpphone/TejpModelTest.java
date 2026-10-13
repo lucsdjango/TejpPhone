@@ -202,6 +202,121 @@ public class TejpModelTest {
     }
 
     @Test
+    public void copyKeepsTheOriginalColour() {
+        Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(8, 4), 1f,
+                NormalFence.TYPE, State.RED);
+        State.fence.addStrip(s);
+        State.selectedStrips.add(s);
+
+        controller.copySelected();
+        Strip copy = State.fence.getStrips().getLast();
+        assertTrue(copy != s);
+        assertEquals(State.RED, copy.getColor());
+    }
+
+    @Test
+    public void mirroredStripsUseGridEdgesWithTheFlippedSlope() {
+        Fence f = State.fence;
+        Strip s = new Strip(f.getEdgeAt(2, 4), f.getEdgeAt(6, 8), 1f, NormalFence.TYPE);
+        f.addStrip(s);
+        State.selectedStrips.add(s);
+
+        controller.mirrorSelected();
+        Strip m = f.getStrips().getFirst();
+        for (Edge e : new Edge[]{m.getStart(), m.getEnd()}) {
+            assertSame(f.getEdgeAt(e.cellX(), e.cellY()), e);
+            assertEquals(1, e.getSlope());   // the original edges were "/" (slope 0)
+        }
+
+        // Mirroring again gives back the original shape and slopes. As on the desktop, the centre
+        // is rounded to a whole column, so with an odd width the strip ends up two columns over.
+        controller.mirrorSelected();
+        Strip back = f.getStrips().getFirst();
+        assertEquals(s.getStart().getSlope(), back.getStart().getSlope());
+        assertEquals(s.getEnd().getSlope(), back.getEnd().getSlope());
+        assertEquals(s.getEnd().cellX() - s.getStart().cellX(), back.getEnd().cellX() - back.getStart().cellX());
+        assertEquals(s.getStart().cellY(), back.getStart().cellY());
+        assertEquals(s.getEnd().cellY(), back.getEnd().cellY());
+        assertSame(f.getEdgeAt(back.getStart().cellX(), back.getStart().cellY()), back.getStart());
+    }
+
+    @Test
+    public void mirroredStripMovesWithoutChangingShape() {
+        Fence f = State.fence;
+        Strip s = new Strip(f.getEdgeAt(2, 4), f.getEdgeAt(6, 8), 1f, NormalFence.TYPE);
+        f.addStrip(s);
+        State.selectedStrips.add(s);
+        controller.mirrorSelected();
+        Strip m = f.getStrips().getFirst();
+        int sx = m.getStart().cellX(), sy = m.getStart().cellY();
+        int ex = m.getEnd().cellX(), ey = m.getEnd().cellY();
+        int startSlope = m.getStart().getSlope(), endSlope = m.getEnd().getSlope();
+
+        controller.setMode(State.Mode.MOVING);
+        controller.onDown(c(10), c(10));
+        controller.onMove(c(12), c(10));   // two cells right
+        controller.onUp();
+
+        // Before the fix, a mirrored strip jumped a row here and changed shape.
+        assertEquals(sx + 2, m.getStart().cellX());
+        assertEquals(sy, m.getStart().cellY());
+        assertEquals(ex + 2, m.getEnd().cellX());
+        assertEquals(ey, m.getEnd().cellY());
+        assertEquals(startSlope, m.getStart().getSlope());
+        assertEquals(endSlope, m.getEnd().getSlope());
+    }
+
+    @Test
+    public void mirrorKeepsTheOriginalColour() {
+        Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(6, 8), 1f,
+                NormalFence.TYPE, State.BLUE);
+        State.fence.addStrip(s);
+        State.selectedStrips.add(s);
+
+        controller.mirrorSelected();
+        Strip m = State.fence.getStrips().getFirst();
+        assertTrue(m != s);
+        assertEquals(State.BLUE, m.getColor());
+    }
+
+    @Test
+    public void undoDeleteWorksAfterTheSelectionChanged() {
+        Fence f = State.fence;
+        Strip a = new Strip(f.getEdgeAt(2, 4), f.getEdgeAt(8, 4), 1f, NormalFence.TYPE);
+        Strip b = new Strip(f.getEdgeAt(2, 8), f.getEdgeAt(8, 8), 1f, NormalFence.TYPE);
+        Strip c = new Strip(f.getEdgeAt(2, 12), f.getEdgeAt(8, 12), 1f, NormalFence.TYPE);
+        f.addStrip(a);
+        f.addStrip(b);
+        f.addStrip(c);
+        State.selectedStrips.add(b);
+
+        controller.deleteSelected();
+        assertEquals(2, f.getStrips().size());
+        assertFalse(State.selectedStrips.contains(b));
+
+        // On the desktop this emptied the delete's record, so the undo below restored nothing.
+        controller.selectAll();
+        controller.undo();   // undoes Select all
+        controller.undo();   // undoes Delete
+
+        assertEquals(3, f.getStrips().size());
+        assertSame(b, f.getStrips().get(1));   // back in its old place in the stack
+        assertTrue(State.selectedStrips.contains(b));
+    }
+
+    @Test
+    public void deletedStripsCannotComeBackThroughCopyOrMirror() {
+        Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(8, 4), 1f, NormalFence.TYPE);
+        State.fence.addStrip(s);
+        State.selectedStrips.add(s);
+
+        controller.deleteSelected();
+        controller.copySelected();
+        controller.mirrorSelected();
+        assertTrue(State.fence.getStrips().isEmpty());
+    }
+
+    @Test
     public void shiftDragMovesTheEndOfAnExistingStrip() {
         Strip s = new Strip(State.fence.getEdgeAt(2, 4), State.fence.getEdgeAt(8, 4), 1f, NormalFence.TYPE);
         State.fence.addStrip(s);

@@ -17,8 +17,8 @@ public class CopyModification extends Modification {
         fence = f;
         selStrips = (HashSet<Strip>) State.selectedStrips.clone();
         for (Strip s : selStrips) {
-            // As in the desktop app, the copy gets the default colour, not the original's.
-            Strip sCopy = new Strip(s.getStart(), s.getEnd(), s.getWidth(), f.getType());
+            // The desktop app gave copies the default white. They now keep the original's colour.
+            Strip sCopy = new Strip(s.getStart(), s.getEnd(), s.getWidth(), f.getType(), s.getColor());
             newStrips.add(sCopy);
             fence.addStrip(sCopy);
         }

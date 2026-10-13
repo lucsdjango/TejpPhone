@@ -12,6 +12,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -23,9 +24,11 @@ import com.example.tejpphone.function.State;
 import com.example.tejpphone.model.NormalFence;
 import com.example.tejpphone.model.TjpFile;
 import com.example.tejpphone.view.FenceView;
+import com.example.tejpphone.view.ImageExporter;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.slider.Slider;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -47,6 +50,14 @@ public class MainActivity extends AppCompatActivity {
     private FileViewModel files;
     private ActivityResultLauncher<String[]> openLauncher;
     private ActivityResultLauncher<String> createLauncher;
+    private ActivityResultLauncher<String[]> pictureLauncher;
+    private ActivityResultLauncher<String> exportLauncher;
+
+    private Chip showPicChip;
+    /** Static, like State, so the panel stays open across rotation. */
+    private static boolean autoPanelOpen = false;
+    private Slider thresholdSlider, contrastSlider;
+    private boolean warnedThisDrag = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,7 +83,88 @@ public class MainActivity extends AppCompatActivity {
         buildModeChips();
         buildToolRow();
         buildActionRow();
+        buildAutoPanel();
         setUpFiles();
+    }
+
+    // ------------------------------------------------------------------ auto strips
+
+    private void buildAutoPanel() {
+        ChipGroup group = findViewById(R.id.autoDirectionGroup);
+        State.AutoDirection[] dirs = State.AutoDirection.values();
+        String[] labels = {"Horizontal", "Diagonal", "Vertical"};
+        List<Integer> ids = new ArrayList<>();
+        for (int i = 0; i < dirs.length; i++) {
+            Chip chip = inflateChip(R.layout.chip_toggle, group, labels[i]);
+            chip.setId(View.generateViewId());
+            chip.setCheckable(true);
+            ids.add(chip.getId());
+            group.addView(chip);
+            if (dirs[i] == State.autoDirection) group.check(chip.getId());
+        }
+        group.setOnCheckedStateChangeListener((g, checked) -> {
+            if (checked.isEmpty()) return;
+            controller.setAutoDirection(dirs[ids.indexOf(checked.get(0))]);
+            showAutoValues();
+        });
+
+        thresholdSlider = findViewById(R.id.thresholdSlider);
+        contrastSlider = findViewById(R.id.contrastSlider);
+        showAutoValues();
+
+        // Like the desktop, moving a slider stores its value for the current direction
+        // and recomputes the auto strips straight away.
+        thresholdSlider.addOnChangeListener((s, value, fromUser) -> {
+            if (!fromUser) return;
+            State.autoThreshold[State.autoDirection.ordinal()] = value;
+            runAutoStrips();
+        });
+        contrastSlider.addOnChangeListener((s, value, fromUser) -> {
+            if (!fromUser) return;
+            State.autoContrast[State.autoDirection.ordinal()] = value;
+            runAutoStrips();
+        });
+        Slider.OnSliderTouchListener resetWarning = new Slider.OnSliderTouchListener() {
+            @Override
+            public void onStartTrackingTouch(@NonNull Slider slider) {
+                warnedThisDrag = false;
+            }
+
+            @Override
+            public void onStopTrackingTouch(@NonNull Slider slider) {}
+        };
+        thresholdSlider.addOnSliderTouchListener(resetWarning);
+        contrastSlider.addOnSliderTouchListener(resetWarning);
+
+        setAutoPanelOpen(autoPanelOpen);
+    }
+
+    private void showAutoValues() {
+        int d = State.autoDirection.ordinal();
+        thresholdSlider.setValue(State.autoThreshold[d]);
+        contrastSlider.setValue(State.autoContrast[d]);
+    }
+
+    private void runAutoStrips() {
+        if (controller.runAutoStrips() || warnedThisDrag) return;
+        warnedThisDrag = true;
+        String why = State.fence.getPicture() == null || !State.fence.getPicture().hasPixels()
+                ? "Load a picture first."
+                : "Auto strips work on normal and vertical fences only.";
+        Toast.makeText(this, why, Toast.LENGTH_SHORT).show();
+    }
+
+    private void setAutoPanelOpen(boolean open) {
+        autoPanelOpen = open;
+        findViewById(R.id.autoPanel).setVisibility(open ? View.VISIBLE : View.GONE);
+    }
+
+    // ------------------------------------------------------------------ picture export
+
+    private void exportJpg() {
+        String base = State.fileName != null ? State.fileName : "tejp";
+        if (base.toLowerCase(Locale.ROOT).endsWith(".tjp")) base = base.substring(0, base.length() - 4);
+        exportLauncher.launch(base + ".jpg");
     }
 
     // ------------------------------------------------------------------ save and load
@@ -91,6 +183,19 @@ public class MainActivity extends AppCompatActivity {
                     if (uri == null) return;
                     keepAccess(uri);
                     files.save(uri, serialize(), false);
+                });
+
+        pictureLauncher = registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+            if (uri != null) files.loadPicture(uri);
+        });
+        exportLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("image/jpeg"), uri -> {
+                    if (uri == null) return;
+                    try {
+                        files.exportJpg(uri, ImageExporter.render(State.fence));
+                    } catch (OutOfMemoryError e) {
+                        Toast.makeText(this, "Not enough memory to export", Toast.LENGTH_LONG).show();
+                    }
                 });
 
         files.getResults().observe(this, this::onFileResult);
@@ -150,6 +255,15 @@ public class MainActivity extends AppCompatActivity {
                 State.fileName = r.name;
                 Toast.makeText(this, "Saved " + r.name, Toast.LENGTH_SHORT).show();
                 break;
+            case PICTURE_LOADED:
+                controller.loadPicture(r.pixels, r.width, r.height);
+                showPicChip.setChecked(true);
+                Toast.makeText(this, "Loaded picture " + r.name
+                        + ". Use Picture mode to move it, or drag its corners.", Toast.LENGTH_LONG).show();
+                break;
+            case EXPORTED:
+                Toast.makeText(this, "Exported " + r.name, Toast.LENGTH_SHORT).show();
+                break;
             case SAVE_NEEDS_NEW_FILE:
                 Toast.makeText(this, "Could not overwrite " + r.name + ". Choose where to save.",
                         Toast.LENGTH_LONG).show();
@@ -167,8 +281,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void buildModeChips() {
         ChipGroup group = findViewById(R.id.modeGroup);
-        State.Mode[] modes = {State.Mode.DRAWING, State.Mode.EDITING, State.Mode.MOVING};
-        String[] labels = {"Draw", "Edit", "Move"};
+        State.Mode[] modes = {State.Mode.DRAWING, State.Mode.EDITING, State.Mode.MOVING, State.Mode.PICTURE};
+        String[] labels = {"Draw", "Edit", "Move", "Picture"};
         List<Integer> ids = new ArrayList<>();
         for (int i = 0; i < modes.length; i++) {
             Chip chip = inflateChip(R.layout.chip_toggle, group, labels[i]);
@@ -202,6 +316,11 @@ public class MainActivity extends AppCompatActivity {
         action(row, "Save", this::save);
         action(row, "Save as", this::saveAs);
         action(row, "Load", this::load);
+        action(row, "Export JPG", this::exportJpg);
+        action(row, "Load picture", () -> pictureLauncher.launch(new String[]{"image/*"}));
+        showPicChip = toggle(row, "Show picture", State.showingPic, controller::setShowingPic);
+        action(row, "Remove picture", controller::removePicture);
+        toggle(row, "Auto strips", autoPanelOpen, this::setAutoPanelOpen);
         action(row, "Select all", controller::selectAll);
         action(row, "Select none", controller::deselectAll);
         action(row, "Select last", controller::selectLast);
@@ -300,11 +419,12 @@ public class MainActivity extends AppCompatActivity {
         return chip;
     }
 
-    private void toggle(ChipGroup row, String text, boolean initial, Toggle onChange) {
+    private Chip toggle(ChipGroup row, String text, boolean initial, Toggle onChange) {
         Chip chip = inflateChip(R.layout.chip_toggle, row, text);
         chip.setCheckable(true);
         chip.setChecked(initial);
         chip.setOnCheckedChangeListener((b, on) -> onChange.set(on));
         row.addView(chip);
+        return chip;
     }
 }

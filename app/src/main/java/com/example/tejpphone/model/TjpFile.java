@@ -94,7 +94,7 @@ public final class TjpFile {
         }
 
         if (in.readBoolean()) {
-            fence.setPictureData(readPicture(data, bytes, in));
+            fence.setPicture(readPicture(data, bytes, in));
         }
 
         boolean colour = variant == Variant.FRAMES_WITH_COLOUR;
@@ -138,10 +138,10 @@ public final class TjpFile {
 
     /**
      * The picture is a BMP image followed by four doubles. The desktop app read it with ImageIO,
-     * which stops at the end of the BMP. Here the BMP's own size field tells where it ends,
-     * and the bytes are kept as they are.
+     * which stops at the end of the BMP. Here the BMP's own size field tells where it ends.
+     * The BMP bytes are kept as they are, so an unchanged picture is saved back identically.
      */
-    private static byte[] readPicture(byte[] data, ByteArrayInputStream bytes, DataInputStream in)
+    private static Picture readPicture(byte[] data, ByteArrayInputStream bytes, DataInputStream in)
             throws IOException {
         int start = data.length - bytes.available();
         if (bytes.available() < 14 || data[start] != 'B' || data[start + 1] != 'M') {
@@ -151,12 +151,14 @@ public final class TjpFile {
                 | (data[start + 3] & 0xFF) << 8
                 | (data[start + 4] & 0xFF) << 16
                 | (data[start + 5] & 0xFF) << 24;
-        int length = bmpSize + 4 * 8;
-        if (bmpSize < 14 || length > bytes.available()) throw new FormatException("Unreadable picture");
+        if (bmpSize < 14 || (long) bmpSize + 4 * 8 > bytes.available()) {
+            throw new FormatException("Unreadable picture");
+        }
 
-        byte[] picture = new byte[length];
-        in.readFully(picture);
-        return picture;
+        byte[] bmp = new byte[bmpSize];
+        in.readFully(bmp);
+        double x0 = in.readDouble(), y0 = in.readDouble(), x3 = in.readDouble(), y3 = in.readDouble();
+        return Picture.fromTjp(bmp, x0, y0, x3, y3);
     }
 
     /** Accepts a Windows or Unix line break. */
@@ -186,8 +188,10 @@ public final class TjpFile {
         if (slope < 0 || slope > 3) throw new FormatException("Unexpected edge slope");
 
         Edge e = new Edge(slope, new Coord(lx, ly), new Coord(rx, ry));
+        // Matched by position only: desktop Mirror stored some edges with the wrong slope,
+        // and using the grid's edge repairs them.
         Edge onGrid = fence.edgeAtOrNull(e.cellX(), e.cellY());
-        return onGrid != null && onGrid.slope == slope && onGrid.equals(e) ? onGrid : e;
+        return onGrid != null && onGrid.equals(e) ? onGrid : e;
     }
 
     /** Writes the newest desktop variant, with colours, so the desktop app can open it. */
@@ -197,9 +201,12 @@ public final class TjpFile {
         out.writeInt(fence.width);
         out.writeInt(fence.height);
 
-        byte[] picture = fence.getPictureData();
+        Picture picture = fence.getPicture();
         out.writeBoolean(picture != null);
-        if (picture != null) out.write(picture);
+        if (picture != null) {
+            out.write(picture.bmpForTjp());
+            for (double d : picture.getCorners()) out.writeDouble(d);
+        }
 
         List<List<Strip>> frames = new ArrayList<>();
         frames.add(fence.getStrips());

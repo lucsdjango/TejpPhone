@@ -41,10 +41,12 @@ public class MirrorModification extends TransformStripsModification {
             Edge newStart = null, newEnd = null;
 
             if (fence instanceof NormalFence) {
-                newStart = new Edge(convertSlope(startSlope),
+                // Mirroring turns / into \ and back. The desktop converted the slope twice here,
+                // which gave back the original, so mirrored edges carried the wrong slope.
+                newStart = new Edge(startSlope,
                         new Coord(midX + (midX - sr.getX()), sr.getY()),
                         new Coord(midX + (midX - sl.getX()), sl.getY()));
-                newEnd = new Edge(convertSlope(endSlope),
+                newEnd = new Edge(endSlope,
                         new Coord(midX + (midX - er.getX()), er.getY()),
                         new Coord(midX + (midX - el.getX()), el.getY()));
             } else if (fence instanceof AbnormalFence) {
@@ -75,7 +77,8 @@ public class MirrorModification extends TransformStripsModification {
                         new Coord(midX + (midX - er.getX()), er.getY()));
             }
 
-            newStrips.add(new Strip(newStart, newEnd, s.getWidth(), fence.getType()));
+            // The desktop left out the colour here, so mirrored strips turned white.
+            newStrips.add(new Strip(onGrid(newStart), onGrid(newEnd), s.getWidth(), fence.getType(), s.getColor()));
         }
 
         fence.getStrips().removeAll(oldStrips);
@@ -90,6 +93,15 @@ public class MirrorModification extends TransformStripsModification {
         fence.getStrips().addAll(oldStrips);
         State.selectedStrips.removeAll(newStrips);
         State.selectedStrips.addAll(oldStrips);
+    }
+
+    /**
+     * The fence's own edge at the same place, if there is one. Then mirrored strips behave like
+     * drawn ones, for example when their end is dragged. Edges mirrored off the grid stay as they are.
+     */
+    private Edge onGrid(Edge e) {
+        Edge g = fence.edgeAtOrNull(e.cellX(), e.cellY());
+        return g != null && g.equals(e) && g.slope == e.slope ? g : e;
     }
 
     private int convertSlope(int i) {

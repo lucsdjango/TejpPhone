@@ -74,9 +74,7 @@ public class Strip {
 
     /** Index of the cell an edge lands in after a shift. Same rule as the desktop Strip.shift. */
     private static int[] shiftedCell(Edge e, int x, int y) {
-        int cx = e.getLeft().getX() + x;
-        int cy = (e.getSlope() > 0 ? e.getLeft().getY() : e.getRight().getY()) + y;
-        return new int[]{cx, cy};
+        return new int[]{e.cellX() + x, e.cellY() + y};
     }
 
     /**

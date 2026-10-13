@@ -44,14 +44,18 @@ public class Edge {
         return selected;
     }
 
-    /** Column of the grid cell that holds this edge. */
+    /**
+     * Column of the grid cell that holds this edge. Every edge shape spans its cell from the
+     * cell's top-left corner, so the cell follows from the coordinates alone. This also places
+     * edges correctly whose stored slope is wrong, as desktop Mirror wrote them.
+     */
     public int cellX() {
-        return leftCoord.getX();
+        return Math.min(leftCoord.getX(), rightCoord.getX());
     }
 
-    /** Row of the grid cell that holds this edge. Same rule as Strip.shift in the desktop app. */
+    /** Row of the grid cell that holds this edge. See cellX. */
     public int cellY() {
-        return slope > 0 ? leftCoord.getY() : rightCoord.getY();
+        return Math.min(leftCoord.getY(), rightCoord.getY());
     }
 
     @Override

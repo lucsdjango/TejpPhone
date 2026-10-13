@@ -1,9 +1,11 @@
 package com.example.tejpphone.view;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -12,11 +14,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.tejpphone.function.Modification;
+import com.example.tejpphone.function.MovePicModification;
 import com.example.tejpphone.function.MoveModification;
 import com.example.tejpphone.function.SelectStripsModification;
 import com.example.tejpphone.function.State;
 import com.example.tejpphone.model.Edge;
 import com.example.tejpphone.model.Fence;
+import com.example.tejpphone.model.Picture;
 import com.example.tejpphone.model.Strip;
 import com.example.tejpphone.model.VerticalFence;
 
@@ -30,7 +34,7 @@ public class FenceView extends View {
     /** Receives one-finger gestures in content coordinates. */
     public interface TouchController {
         /** Returns true if a gesture started. Only then are onMove/onUp/onCancel called. */
-        boolean onDown(float x, float y);
+        boolean onDown(float x, float y, float touchRadius);
 
         void onMove(float x, float y);
 
@@ -45,6 +49,16 @@ public class FenceView extends View {
     private static final int ORANGE = 0xFFFFC800;       // java.awt.Color.ORANGE
     private static final float MIN_SCALE = 0.2f;
     private static final float MAX_SCALE = 40f;
+    /** Picture corner handles: drawn size, and how far from a corner a touch still grabs it. */
+    private static final float HANDLE_DP = 14f;
+    private static final float HANDLE_TOUCH_DP = 28f;
+
+    private final float density;
+    private final PictureBitmaps pictureBitmaps = new PictureBitmaps();
+    private final RectF pictureRect = new RectF();
+    private final Paint picturePaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint handleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint handleOutline = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private Fence fence;
     /** Non-null in the layers viewer: strips from the layers underneath, drawn opaque. */
@@ -74,7 +88,10 @@ public class FenceView extends View {
 
     public FenceView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        renderer = new StripRenderer(getResources().getDisplayMetrics().density);
+        density = getResources().getDisplayMetrics().density;
+        renderer = new StripRenderer(density);
+        handleOutline.setStyle(Paint.Style.STROKE);
+        handleOutline.setColor(Color.BLACK);
         // Stroke width 0 is a one-pixel hairline at any zoom, like the desktop's 1 px lines.
         gridPaint.setColor(Color.BLACK);
         gridPaint.setStrokeWidth(0f);
@@ -137,10 +154,14 @@ public class FenceView extends View {
         canvas.translate(tx, ty);
         canvas.scale(scale, scale);
 
+        boolean layered = below != null;
+
+        // As on the desktop, the picture lies under the grid lines and the strips.
+        Picture picture = fence.getPicture();
+        if (!layered && State.showingPic && picture != null) drawPicture(canvas, picture);
+
         ensureGrid();
         canvas.drawLines(gridLines, gridPaint);
-
-        boolean layered = below != null;
 
         if (!layered) {
             Edge se = State.selectedEdge;
@@ -178,7 +199,45 @@ public class FenceView extends View {
 
         if (!layered && State.activeStrip != null) drawStrip(canvas, State.activeStrip, 0.75f, false);
 
+        if (!layered && State.getMode() == State.Mode.PICTURE && State.showingPic && picture != null) {
+            drawHandles(canvas, picture);
+        }
+
         canvas.restore();
+    }
+
+    private void drawPicture(Canvas canvas, Picture p) {
+        Bitmap bmp = pictureBitmaps.get(p);
+        if (bmp == null) return;
+        double[] c = p.getCorners();
+        pictureRect.set((float) (c[0] * S), (float) (c[1] * S), (float) (c[2] * S), (float) (c[3] * S));
+        canvas.drawBitmap(bmp, null, pictureRect, picturePaint);
+    }
+
+    /**
+     * Corner handles in Picture mode, like the desktop's unused Corner class:
+     * white squares, cyan for the corner being dragged. Sized in dp, so they ignore zoom.
+     */
+    private void drawHandles(Canvas canvas, Picture p) {
+        double[] c = p.getCorners();
+        float[][] corners = {
+                {(float) c[0] * S, (float) c[1] * S}, {(float) c[2] * S, (float) c[1] * S},
+                {(float) c[0] * S, (float) c[3] * S}, {(float) c[2] * S, (float) c[3] * S}};
+
+        int active = -1;
+        if (State.activeModification instanceof MovePicModification) {
+            MovePicModification m = (MovePicModification) State.activeModification;
+            if (m.isResizing()) active = m.getCorner();
+        }
+
+        float half = HANDLE_DP * density / scale / 2f;
+        handleOutline.setStrokeWidth(1.5f * density / scale);
+        for (int i = 0; i < 4; i++) {
+            float x = corners[i][0], y = corners[i][1];
+            handleFill.setColor(i == active ? Color.CYAN : Color.WHITE);
+            canvas.drawRect(x - half, y - half, x + half, y + half, handleFill);
+            canvas.drawRect(x - half, y - half, x + half, y + half, handleOutline);
+        }
     }
 
     private void drawStrip(Canvas canvas, Strip s, float alpha) {
@@ -255,7 +314,8 @@ public class FenceView extends View {
             case MotionEvent.ACTION_DOWN:
                 multiTouch = false;
                 toolActive = controller != null
-                        && controller.onDown(toContentX(e.getX()), toContentY(e.getY()));
+                        && controller.onDown(toContentX(e.getX()), toContentY(e.getY()),
+                        HANDLE_TOUCH_DP * density / scale);
                 return true;
 
             case MotionEvent.ACTION_POINTER_DOWN:
