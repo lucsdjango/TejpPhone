@@ -31,7 +31,7 @@ public class AutoStrips {
     enum Kind {
         NORMAL_HOR(4.51f, 1.51f, Alpha.FRACTION),
         NORMAL_VERT(4.5f, 1.5f, Alpha.FRACTION),
-        NORMAL_DIAG(5f, 1.5f, Alpha.ALL_OR_NOTHING),
+        NORMAL_DIAG(5f, 1.25f, Alpha.FRACTION),
         VERT_HOR(3f, 1.5f, Alpha.IGNORED),
         VERT_DIAG(3f, 1.1875f, Alpha.IGNORED);
 
@@ -131,9 +131,14 @@ public class AutoStrips {
                     if (dY == dX) i.remove();
                     break;
                 }
-                case NORMAL_DIAG:
-                    // The desktop had this clearing commented out.
+                case NORMAL_DIAG: {
+                    // The desktop had this clearing commented out, so its diagonal strips piled up.
+                    // Diagonal rows step one cell right and one down per edge.
+                    int dX = b.cellX() - a.cellX();
+                    int dY = b.cellY() - a.cellY();
+                    if (dX == dY && dX != 0 && s.getColor() == Strip.WHITE) i.remove();
                     break;
+                }
             }
         }
     }
