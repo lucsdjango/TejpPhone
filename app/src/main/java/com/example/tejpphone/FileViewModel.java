@@ -177,14 +177,14 @@ public class FileViewModel extends AndroidViewModel {
         return bmp;
     }
 
-    /** Writes a rendered drawing as PNG, which keeps transparency, then frees the bitmap. */
-    public void exportPng(Uri uri, Bitmap image) {
+    /** Writes a rendered drawing as JPG, then frees the bitmap. */
+    public void exportJpg(Uri uri, Bitmap image) {
         executor.execute(() -> {
             ContentResolver cr = getApplication().getContentResolver();
             String name = displayName(cr, uri);
             try (OutputStream out = cr.openOutputStream(uri, "wt")) {
                 if (out == null) throw new IOException("Could not open the file");
-                if (!image.compress(Bitmap.CompressFormat.PNG, 100, out)) throw new IOException("PNG encoding failed");
+                if (!image.compress(Bitmap.CompressFormat.JPEG, 95, out)) throw new IOException("JPG encoding failed");
                 results.postValue(new Result(Result.Kind.EXPORTED, null, uri, name, null));
             } catch (IOException | SecurityException | IllegalArgumentException
                      | UnsupportedOperationException e) {

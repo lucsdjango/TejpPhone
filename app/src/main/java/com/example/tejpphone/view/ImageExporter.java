@@ -13,14 +13,14 @@ import com.example.tejpphone.model.Picture;
 import com.example.tejpphone.model.Strip;
 
 /**
- * Renders the drawing for a PNG export. Port of the desktop FencePanel.saveImg:
+ * Renders the drawing for a JPG export. Port of the desktop FencePanel.saveImg:
  * <ul>
- *   <li>transparent background, where the desktop used white, so the picture's transparency is kept,</li>
+ *   <li>white background,</li>
  *   <li>the picture, if shown, and the grid lines at half strength,</li>
  *   <li>strips in their own colour, inverted if Invert is on, at 67% for 2.0 cm strips
  *       and 55% for all others.</li>
  * </ul>
- * With white strips, turn on Invert to get black strips.
+ * With white strips, turn on Invert to get black strips on the white background.
  *
  * <p>The desktop rendered at the current zoom. Here the image is rendered larger, so it stays sharp.
  */
@@ -39,6 +39,7 @@ public final class ImageExporter {
 
         Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(out);
+        canvas.drawColor(Color.WHITE);
         canvas.scale(k, k);
 
         // The desktop painted its child panels, the picture and the edges, at 50%.

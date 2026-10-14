@@ -270,7 +270,9 @@ public class FenceView extends View {
 
     private boolean showsLoupe() {
         State.Mode m = State.getMode();
-        return controller != null && m != State.Mode.PICTURE && !State.boxSelect;
+        // Box select only applies in Edit mode, so it must not hide the magnifier elsewhere.
+        return controller != null && m != State.Mode.PICTURE
+                && !(m == State.Mode.EDITING && State.boxSelect);
     }
 
     /**

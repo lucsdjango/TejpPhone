@@ -23,6 +23,10 @@ import java.util.LinkedList;
  */
 public class FenceController implements FenceView.TouchController {
 
+    /** Size of a new fence. */
+    public static final int DEFAULT_WIDTH = 64;
+    public static final int DEFAULT_HEIGHT = 32;
+
     private static final int S = Fence.CELL_SIZE;
 
     private final Runnable repaint;
@@ -525,15 +529,15 @@ public class FenceController implements FenceView.TouchController {
         return true;
     }
 
-    /** "normal" button: a new diagonal fence the size of the current one. */
+    /** "normal" button: a new diagonal fence of the default size. */
     public void newNormalFence() {
-        replaceFence(new NormalFence(fence().width, fence().height));
+        replaceFence(new NormalFence(DEFAULT_WIDTH, DEFAULT_HEIGHT));
         forgetFile();
     }
 
-    /** "vertical" button: a new 33 x 21 vertical fence, as on the desktop. */
+    /** "vertical" button: a new vertical fence of the default size. */
     public void newVerticalFence() {
-        replaceFence(new VerticalFence(33, 21));
+        replaceFence(new VerticalFence(DEFAULT_WIDTH, DEFAULT_HEIGHT));
         forgetFile();
     }
 

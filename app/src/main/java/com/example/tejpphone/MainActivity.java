@@ -28,7 +28,6 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
-
 import com.example.tejpphone.function.FenceController;
 import com.example.tejpphone.function.History;
 import com.example.tejpphone.function.State;
@@ -53,9 +52,6 @@ import java.util.Locale;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
-
-    private static final int DEFAULT_WIDTH = 64;
-    private static final int DEFAULT_HEIGHT = 32;
 
     private static final State.Mode[] TOOLS =
             {State.Mode.DRAWING, State.Mode.EDITING, State.Mode.MOVING, State.Mode.PICTURE};
@@ -99,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
         // State is static, so the drawing survives rotation. When the app process starts,
         // bring back the autosave if there is one.
         if (State.fence == null && !Autosave.restore(this)) {
-            State.fence = new NormalFence(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+            State.fence = new NormalFence(FenceController.DEFAULT_WIDTH, FenceController.DEFAULT_HEIGHT);
         }
 
         fenceView = findViewById(R.id.fenceView);
@@ -428,7 +424,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.action_load) {
             confirmDiscard("Open another drawing?", () -> openLauncher.launch(new String[]{"*/*"}));
         } else if (id == R.id.action_export) {
-            exportPng();
+            exportJpg();
         } else if (id == R.id.action_layers) {
             startActivity(new Intent(this, LayersActivity.class));
         } else if (id == R.id.action_invert) {
@@ -489,10 +485,10 @@ public class MainActivity extends AppCompatActivity {
             if (uri != null) files.loadPicture(uri);
         });
         exportLauncher = registerForActivityResult(
-                new ActivityResultContracts.CreateDocument("image/png"), uri -> {
+                new ActivityResultContracts.CreateDocument("image/jpeg"), uri -> {
                     if (uri == null) return;
                     try {
-                        files.exportPng(uri, ImageExporter.render(State.fence));
+                        files.exportJpg(uri, ImageExporter.render(State.fence));
                     } catch (OutOfMemoryError e) {
                         Toast.makeText(this, "Not enough memory to export", Toast.LENGTH_LONG).show();
                     }
@@ -517,10 +513,10 @@ public class MainActivity extends AppCompatActivity {
         createLauncher.launch(name);
     }
 
-    private void exportPng() {
+    private void exportJpg() {
         String base = State.fileName != null ? State.fileName : "tejp";
         if (base.toLowerCase(Locale.ROOT).endsWith(".tjp")) base = base.substring(0, base.length() - 4);
-        exportLauncher.launch(base + ".png");
+        exportLauncher.launch(base + ".jpg");
     }
 
     /** Snapshot of the drawing, taken on the main thread so it cannot change while being written. */
