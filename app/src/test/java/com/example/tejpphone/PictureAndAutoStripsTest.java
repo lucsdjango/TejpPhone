@@ -129,6 +129,22 @@ public class PictureAndAutoStripsTest {
     }
 
     @Test
+    public void newDiagonalSessionClearsOldDiagonalStrips() {
+        Fence f = State.fence;
+        Strip red = new Strip(f.getEdgeAt(2, 2), f.getEdgeAt(6, 6), 1f, NormalFence.TYPE, State.RED);
+        f.addStrip(red);
+        fill(0xFFFFFFFF);
+        settings(State.AutoDirection.DIAGONAL, 0.5f, 1f);
+        controller.runAutoStrips();
+        int first = f.getStrips().size();
+
+        controller.selectAll();   // ends the session
+        controller.runAutoStrips();
+        assertEquals(first, f.getStrips().size());
+        assertTrue(f.getStrips().contains(red));   // Only white strips are cleared.
+    }
+
+    @Test
     public void sliderSessionIsOneUndoStepAndKeepsColouredStrips() {
         Fence f = State.fence;
         Strip red = new Strip(f.getEdgeAt(2, 4), f.getEdgeAt(8, 4), 1f, NormalFence.TYPE, State.RED);

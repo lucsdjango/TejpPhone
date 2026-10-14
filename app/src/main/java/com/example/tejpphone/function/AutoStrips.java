@@ -131,9 +131,14 @@ public class AutoStrips {
                     if (dY == dX) i.remove();
                     break;
                 }
-                case NORMAL_DIAG:
-                    // The desktop had this clearing commented out.
+                case NORMAL_DIAG: {
+                    // The desktop had this clearing commented out, so its diagonal strips piled up.
+                    // Diagonal rows step one cell right and one down per edge.
+                    int dX = b.cellX() - a.cellX();
+                    int dY = b.cellY() - a.cellY();
+                    if (dX == dY && dX != 0 && s.getColor() == Strip.WHITE) i.remove();
                     break;
+                }
             }
         }
     }
