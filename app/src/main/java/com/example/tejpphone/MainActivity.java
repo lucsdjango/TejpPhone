@@ -1,6 +1,7 @@
 package com.example.tejpphone;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -55,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final State.Mode[] TOOLS =
             {State.Mode.DRAWING, State.Mode.EDITING, State.Mode.MOVING, State.Mode.PICTURE};
-    private static final String[] TOOL_NAMES = {"Draw", "Edit", "Move", "Picture"};
+    private static final String[] TOOL_NAMES = {"Draw", "Select", "Move", "Picture"};
     private static final int[] TOOL_ICONS = {R.drawable.ic_draw, R.drawable.ic_select, R.drawable.ic_move, R.drawable.ic_picture};
 
     /** The drawing state when the last save started; static so it survives rotation. */
@@ -84,6 +85,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (getResources().getBoolean(R.bool.landscape_only)) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        }
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -142,8 +146,6 @@ public class MainActivity extends AppCompatActivity {
     private void refreshUi() {
         topBar.setTitle(State.fileName != null ? State.fileName : "Untitled");
         topBar.setSubtitle(History.isDirty() ? "Unsaved changes" : null);
-        MenuItem invert = topBar.getMenu().findItem(R.id.action_invert);
-        if (invert != null) invert.setChecked(State.inverted);
 
         setEnabled(undoButton, History.canUndo());
         setEnabled(redoButton, History.canRedo());
@@ -184,7 +186,10 @@ public class MainActivity extends AppCompatActivity {
             b.setPadding(0, dp(8), 0, dp(8));
             b.setCheckable(true);
             b.setBackgroundTintList(checkedBg);
-            group.addView(b, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            // A row of equal buttons on phones, a rail down the side on large screens.
+            group.addView(b, group.getOrientation() == LinearLayout.VERTICAL
+                    ? new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    : new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             toolButtons.add(b);
             if (TOOLS[i] == State.getMode()) group.check(b.getId());
         }
@@ -219,6 +224,7 @@ public class MainActivity extends AppCompatActivity {
                 Chip colour = action(contextRow, colourName(State.currentColor), this::openStylePicker);
                 colour.setChipIcon(swatch(State.currentColor));
                 colour.setChipIconVisible(true);
+                toggle(contextRow, "Invert colours", State.inverted, controller::setInverted);
                 hint("Hold a strip's end to drag it");
                 break;
 
@@ -427,8 +433,6 @@ public class MainActivity extends AppCompatActivity {
             exportJpg();
         } else if (id == R.id.action_layers) {
             startActivity(new Intent(this, LayersActivity.class));
-        } else if (id == R.id.action_invert) {
-            controller.setInverted(!State.inverted);
         } else if (id == R.id.action_fit) {
             fenceView.fitToView();
         } else if (id == R.id.action_new_normal) {

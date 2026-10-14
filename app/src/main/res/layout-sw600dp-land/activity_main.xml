@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Layout for large landscape screens, such as 4:3 tablets. Same views and ids as the phone
+     layout, arranged so the drawing gets as much of the screen as possible. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/toolbar_background"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <!-- File name, unsaved marker, Save, and a menu with the other file actions. -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        app:menu="@menu/main_menu" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <!-- The four tools, and undo and redo, in a rail down the left side. -->
+        <LinearLayout
+            android:id="@+id/bottomBar"
+            android:layout_width="88dp"
+            android:layout_height="match_parent"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="8dp">
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toolGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:selectionRequired="true"
+                app:singleSelection="true" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageButton
+                android:id="@+id/undoButton"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Undo"
+                android:src="@drawable/ic_undo" />
+
+            <ImageButton
+                android:id="@+id/redoButton"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Redo"
+                android:src="@drawable/ic_redo" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- Controls for the current tool only. -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/contextRow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    app:singleLine="true" />
+            </HorizontalScrollView>
+
+            <!-- A one-line reminder of the gestures for the current tool. -->
+            <TextView
+                android:id="@+id/contextHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:paddingHorizontal="16dp"
+                android:paddingBottom="4dp"
+                android:textColor="#B3FFFFFF"
+                android:textSize="13sp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <com.example.tejpphone.view.FenceView
+                    android:id="@+id/fenceView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <!-- Actions for the selected strips, shown whenever something is selected. -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/selectionBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:layout_margin="12dp"
+                    android:visibility="gone"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="6dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="4dp"
+                        android:paddingTop="4dp">
+
+                        <TextView
+                            android:id="@+id/selectionCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_horizontal"
+                            android:textAppearance="?attr/textAppearanceLabelMedium" />
+
+                        <LinearLayout
+                            android:id="@+id/selectionButtons"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- Picture mode panels in a column on the right. It takes no space when both are hidden. -->
+        <ScrollView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="8dp">
+
+                <!-- Picture mode: opacity. -->
+                <LinearLayout
+                    android:id="@+id/picturePanel"
+                    android:layout_width="360dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="88dp"
+                        android:layout_height="wrap_content"
+                        android:text="Opacity"
+                        android:textColor="@color/white" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/opacitySlider"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:contentDescription="Picture opacity"
+                        android:valueFrom="0"
+                        android:valueTo="1" />
+
+                    <TextView
+                        android:id="@+id/opacityValue"
+                        android:layout_width="48dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:textColor="@color/white" />
+                </LinearLayout>
+
+                <!-- Picture mode: port of the desktop auto strips panel. -->
+                <LinearLayout
+                    android:id="@+id/autoPanel"
+                    android:layout_width="360dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp"
+                    android:visibility="gone">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/autoDirectionGroup"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:selectionRequired="true"
+                        app:singleLine="true"
+                        app:singleSelection="true" />
+
+                    <TextView
+                        android:id="@+id/autoReason"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingVertical="4dp"
+                        android:textColor="#FFFFC800"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="88dp"
+                            android:layout_height="wrap_content"
+                            android:text="Threshold"
+                            android:textColor="@color/white" />
+
+                        <com.google.android.material.slider.Slider
+                            android:id="@+id/thresholdSlider"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:contentDescription="Auto strips threshold"
+                            android:valueFrom="0"
+                            android:valueTo="1" />
+
+                        <TextView
+                            android:id="@+id/thresholdValue"
+                            android:layout_width="48dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="end"
+                            android:textColor="@color/white" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="88dp"
+                            android:layout_height="wrap_content"
+                            android:text="Contrast"
+                            android:textColor="@color/white" />
+
+                        <com.google.android.material.slider.Slider
+                            android:id="@+id/contrastSlider"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:contentDescription="Auto strips contrast"
+                            android:valueFrom="0"
+                            android:valueTo="1" />
+
+                        <TextView
+                            android:id="@+id/contrastValue"
+                            android:layout_width="48dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="end"
+                            android:textColor="@color/white" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+
+</LinearLayout>

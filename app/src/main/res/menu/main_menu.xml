@@ -24,11 +24,6 @@
         android:title="Layers"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_invert"
-        android:checkable="true"
-        android:title="Invert colours"
-        app:showAsAction="never" />
-    <item
         android:id="@+id/action_fit"
         android:title="Fit to screen"
         app:showAsAction="never" />
