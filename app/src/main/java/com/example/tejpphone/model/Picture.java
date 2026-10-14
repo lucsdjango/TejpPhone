@@ -90,16 +90,27 @@ public final class Picture {
 
     /**
      * The BMP to store in a .tjp file. A picture that came from a .tjp file is written back unchanged.
-     * A new one is shrunk to 300 x 300 over black, as the desktop app did.
+     * A new one is shrunk to 300 x 300, as the desktop app did. Transparency is kept.
      */
     public byte[] bmpForTjp() {
         if (storedBmp != null) return storedBmp;
-        int[] small = scale(argb, width, height, TJP_SIZE, TJP_SIZE);
+        // Scaled premultiplied, so transparent pixels do not darken the edges next to them.
+        int[] pre = new int[argb.length];
+        for (int i = 0; i < argb.length; i++) {
+            int c = argb[i], a = c >>> 24;
+            pre[i] = a << 24 | ((c >> 16) & 0xFF) * a / 255 << 16 | ((c >> 8) & 0xFF) * a / 255 << 8 | (c & 0xFF) * a / 255;
+        }
+        int[] small = scale(pre, width, height, TJP_SIZE, TJP_SIZE);
         for (int i = 0; i < small.length; i++) {
-            int c = small[i];
-            int a = c >>> 24;
-            int r = ((c >> 16) & 0xFF) * a / 255, g = ((c >> 8) & 0xFF) * a / 255, b = (c & 0xFF) * a / 255;
-            small[i] = 0xFF000000 | r << 16 | g << 8 | b;
+            int c = small[i], a = c >>> 24;
+            if (a == 0) {
+                small[i] = 0;
+            } else if (a < 255) {
+                int r = Math.min(255, ((c >> 16) & 0xFF) * 255 / a);
+                int g = Math.min(255, ((c >> 8) & 0xFF) * 255 / a);
+                int b = Math.min(255, (c & 0xFF) * 255 / a);
+                small[i] = a << 24 | r << 16 | g << 8 | b;
+            }
         }
         return Bmp.encode(TJP_SIZE, TJP_SIZE, small);
     }

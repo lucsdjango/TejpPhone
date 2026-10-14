@@ -17,7 +17,7 @@
         app:showAsAction="never" />
     <item
         android:id="@+id/action_export"
-        android:title="Export JPG…"
+        android:title="Export PNG…"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_layers"

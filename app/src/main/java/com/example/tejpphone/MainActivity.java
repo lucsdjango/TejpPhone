@@ -28,6 +28,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
+
 import com.example.tejpphone.function.FenceController;
 import com.example.tejpphone.function.History;
 import com.example.tejpphone.function.State;
@@ -427,7 +428,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.action_load) {
             confirmDiscard("Open another drawing?", () -> openLauncher.launch(new String[]{"*/*"}));
         } else if (id == R.id.action_export) {
-            exportJpg();
+            exportPng();
         } else if (id == R.id.action_layers) {
             startActivity(new Intent(this, LayersActivity.class));
         } else if (id == R.id.action_invert) {
@@ -488,10 +489,10 @@ public class MainActivity extends AppCompatActivity {
             if (uri != null) files.loadPicture(uri);
         });
         exportLauncher = registerForActivityResult(
-                new ActivityResultContracts.CreateDocument("image/jpeg"), uri -> {
+                new ActivityResultContracts.CreateDocument("image/png"), uri -> {
                     if (uri == null) return;
                     try {
-                        files.exportJpg(uri, ImageExporter.render(State.fence));
+                        files.exportPng(uri, ImageExporter.render(State.fence));
                     } catch (OutOfMemoryError e) {
                         Toast.makeText(this, "Not enough memory to export", Toast.LENGTH_LONG).show();
                     }
@@ -516,10 +517,10 @@ public class MainActivity extends AppCompatActivity {
         createLauncher.launch(name);
     }
 
-    private void exportJpg() {
+    private void exportPng() {
         String base = State.fileName != null ? State.fileName : "tejp";
         if (base.toLowerCase(Locale.ROOT).endsWith(".tjp")) base = base.substring(0, base.length() - 4);
-        exportLauncher.launch(base + ".jpg");
+        exportLauncher.launch(base + ".png");
     }
 
     /** Snapshot of the drawing, taken on the main thread so it cannot change while being written. */

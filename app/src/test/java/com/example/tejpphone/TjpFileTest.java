@@ -148,6 +148,31 @@ public class TjpFileTest {
     }
 
     @Test
+    public void bmpRoundTripKeepsTransparency() {
+        int[] px = {0x00000000, 0x80FF0000, 0xFF00FF00, 0x400000FF, 0xFFFFFFFF, 0x01020304};
+        byte[] bmp = Bmp.encode(3, 2, px);
+        assertEquals(32, bmp[28]);
+        Bmp.Image img = Bmp.decode(bmp);
+        assertEquals(3, img.width);
+        assertEquals(2, img.height);
+        assertArrayEquals(px, img.argb);
+    }
+
+    @Test
+    public void newPictureKeepsTransparencyInTjp() throws IOException {
+        NormalFence f = sample();
+        int w = 40, h = 20;
+        int[] px = new int[w * h];
+        for (int i = 0; i < px.length; i++) px[i] = (i % w) < w / 2 ? 0x00000000 : 0xFF0000FF;
+        f.setPicture(Picture.fromPixels(w, h, px, 2, 2, 12, 12));
+
+        Picture p = TjpFile.read(write(f)).getPicture();
+        assertTrue(p.hasPixels());
+        assertEquals(0x00000000, p.getPixels()[0]);                      // left half transparent
+        assertEquals(0xFF0000FF, p.getPixels()[Picture.TJP_SIZE - 1]);   // right half opaque blue
+    }
+
+    @Test
     public void readsFramesWithoutColour() throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         DataOutputStream out = header(bytes, NormalFence.TYPE, 20, 20);
