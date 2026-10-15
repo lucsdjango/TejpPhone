@@ -368,13 +368,13 @@ public class MainActivity extends AppCompatActivity {
             thresholdValue.setText(String.format(Locale.US, "%.2f", value));
             if (!fromUser) return;
             State.autoThreshold[State.autoDirection.ordinal()] = value;
-            runAutoStrips();
+            runAutoStrips(true);
         });
         contrastSlider.addOnChangeListener((s, value, fromUser) -> {
             contrastValue.setText(String.format(Locale.US, "%.2f", value));
             if (!fromUser) return;
             State.autoContrast[State.autoDirection.ordinal()] = value;
-            runAutoStrips();
+            runAutoStrips(false);
         });
         Slider.OnSliderTouchListener resetWarning = new Slider.OnSliderTouchListener() {
             @Override
@@ -413,8 +413,8 @@ public class MainActivity extends AppCompatActivity {
         contrastSlider.setEnabled(reason == null);
     }
 
-    private void runAutoStrips() {
-        if (controller.runAutoStrips() || warnedThisDrag) return;
+    private void runAutoStrips(boolean thresholdMoved) {
+        if (controller.runAutoStrips(thresholdMoved) || warnedThisDrag) return;
         warnedThisDrag = true;
         refreshAutoPanel();
     }

@@ -510,9 +510,10 @@ public class FenceController implements FenceView.TouchController {
      * the strips as they were when the session began, so strips never pile up. The desktop piled
      * them up for diagonal strips on normal fences, where its clearing was commented out.
      *
+     * @param thresholdMoved true for the threshold slider (thick strips), false for contrast (thin)
      * @return false if there is no usable picture, or the fence type has no auto strips
      */
-    public boolean runAutoStrips() {
+    public boolean runAutoStrips(boolean thresholdMoved) {
         Fence f = fence();
         Picture p = f.getPicture();
         if (p == null || !p.hasPixels() || AutoStrips.kindFor(f, State.autoDirection) == null) return false;
@@ -524,6 +525,9 @@ public class FenceController implements FenceView.TouchController {
         int d = State.autoDirection.ordinal();
         autoStrips.apply(f, autoSession.getOldStrips(), p, State.autoDirection,
                 State.autoThreshold[d], State.autoContrast[d], State.inverted);
+        // New strips are drawn at the width the moved slider controls.
+        AutoStrips.Kind kind = AutoStrips.kindFor(f, State.autoDirection);
+        State.currentStripWidth = thresholdMoved ? kind.thick : kind.thin;
         State.selectedStrips.retainAll(f.getStrips());
         repaint.run();
         return true;

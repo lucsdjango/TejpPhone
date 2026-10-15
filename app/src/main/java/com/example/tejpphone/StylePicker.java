@@ -20,6 +20,7 @@ import androidx.core.widget.NestedScrollView;
 
 import com.example.tejpphone.function.FenceController;
 import com.example.tejpphone.function.State;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -99,6 +100,9 @@ final class StylePicker {
         NestedScrollView scroll = new NestedScrollView(activity);
         scroll.addView(content);
         sheet.setContentView(scroll);
+        // Open fully instead of stopping at the peek height.
+        sheet.getBehavior().setSkipCollapsed(true);
+        sheet.getBehavior().setState(BottomSheetBehavior.STATE_EXPANDED);
         sheet.show();
     }
 

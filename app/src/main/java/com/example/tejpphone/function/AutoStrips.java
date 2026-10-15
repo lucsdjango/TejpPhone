@@ -31,9 +31,9 @@ public class AutoStrips {
     enum Kind {
         NORMAL_HOR(4.51f, 1.51f, Alpha.FRACTION),
         NORMAL_VERT(4.5f, 1.5f, Alpha.FRACTION),
-        NORMAL_DIAG(5f, 1.25f, Alpha.FRACTION),
-        VERT_HOR(3f, 1.5f, Alpha.IGNORED),
-        VERT_DIAG(3f, 1.1875f, Alpha.IGNORED);
+        NORMAL_DIAG(3.75f, 1.25f, Alpha.FRACTION),
+        VERT_HOR(3f, 1.5f, Alpha.FRACTION),
+        VERT_DIAG(3f, 1.1875f, Alpha.FRACTION);
 
         final float thick, thin;
         final Alpha alpha;

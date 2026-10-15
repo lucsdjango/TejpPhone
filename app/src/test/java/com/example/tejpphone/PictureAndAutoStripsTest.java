@@ -68,7 +68,7 @@ public class PictureAndAutoStripsTest {
     public void brightPictureGivesThickHorizontalStrips() {
         fill(0xFFFFFFFF);
         settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
-        assertTrue(controller.runAutoStrips());
+        assertTrue(controller.runAutoStrips(true));
 
         assertTrue(State.fence.getStrips().size() >= 15);
         for (Strip s : State.fence.getStrips()) {
@@ -82,11 +82,11 @@ public class PictureAndAutoStripsTest {
     public void darkPictureGivesNothingUnlessInverted() {
         fill(0xFF000000);
         settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         assertTrue(State.fence.getStrips().isEmpty());
 
         controller.setInverted(true);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         assertFalse(State.fence.getStrips().isEmpty());
     }
 
@@ -94,7 +94,7 @@ public class PictureAndAutoStripsTest {
     public void contrastGivesThinStrips() {
         fill(0xFF808080);   // brightness about 0.5
         settings(State.AutoDirection.HORIZONTAL, 0.6f, 0.5f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
 
         assertFalse(State.fence.getStrips().isEmpty());
         for (Strip s : State.fence.getStrips()) assertEquals(1.51f, s.getWidth(), 0f);
@@ -104,7 +104,7 @@ public class PictureAndAutoStripsTest {
     public void verticalStripsOnNormalFence() {
         fill(0xFFFFFFFF);
         settings(State.AutoDirection.VERTICAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
 
         assertFalse(State.fence.getStrips().isEmpty());
         for (Strip s : State.fence.getStrips()) {
@@ -117,14 +117,14 @@ public class PictureAndAutoStripsTest {
     public void diagonalStripsDoNotPileUpWhileTheSliderMoves() {
         fill(0xFFFFFFFF);
         settings(State.AutoDirection.DIAGONAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         int first = State.fence.getStrips().size();
         assertTrue(first > 0);
-        for (Strip s : State.fence.getStrips()) assertEquals(5f, s.getWidth(), 0f);
+        for (Strip s : State.fence.getStrips()) assertEquals(3.75f, s.getWidth(), 0f);
 
         // The desktop added a full new set on every slider tick here.
-        controller.runAutoStrips();
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
+        controller.runAutoStrips(true);
         assertEquals(first, State.fence.getStrips().size());
     }
 
@@ -135,11 +135,11 @@ public class PictureAndAutoStripsTest {
         f.addStrip(red);
         fill(0xFFFFFFFF);
         settings(State.AutoDirection.DIAGONAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         int first = f.getStrips().size();
 
         controller.selectAll();   // ends the session
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         assertEquals(first, f.getStrips().size());
         assertTrue(f.getStrips().contains(red));   // Only white strips are cleared.
     }
@@ -152,9 +152,9 @@ public class PictureAndAutoStripsTest {
         fill(0xFFFFFFFF);
 
         settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         settings(State.AutoDirection.HORIZONTAL, 0.4f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         assertTrue(f.getStrips().contains(red));   // Only white strips are cleared, as on the desktop.
         assertTrue(f.getStrips().size() > 1);
 
@@ -167,12 +167,12 @@ public class PictureAndAutoStripsTest {
     public void somethingElseInBetweenStartsANewSession() {
         fill(0xFFFFFFFF);
         settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         int horizontal = State.fence.getStrips().size();
 
         controller.selectAll();
         settings(State.AutoDirection.VERTICAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         int both = State.fence.getStrips().size();
         assertTrue(both > horizontal);
 
@@ -184,12 +184,12 @@ public class PictureAndAutoStripsTest {
     public void switchingDirectionKeepsTheStripsOfTheLastDirection() {
         fill(0xFFFFFFFF);
         settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         int horizontal = State.fence.getStrips().size();
 
         controller.setAutoDirection(State.AutoDirection.DIAGONAL);
         settings(State.AutoDirection.DIAGONAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         assertTrue(State.fence.getStrips().size() > horizontal);
 
         controller.undo();   // the diagonal session only
@@ -202,24 +202,34 @@ public class PictureAndAutoStripsTest {
         fill(0xFFFFFFFF);
 
         settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
-        assertTrue(controller.runAutoStrips());
+        assertTrue(controller.runAutoStrips(true));
         assertFalse(State.fence.getStrips().isEmpty());
         for (Strip s : State.fence.getStrips()) assertEquals(3f, s.getWidth(), 0f);
 
         controller.selectAll();   // ends the session
         settings(State.AutoDirection.DIAGONAL, 0.5f, 1f);
-        assertTrue(controller.runAutoStrips());
+        assertTrue(controller.runAutoStrips(true));
         boolean anyDiagonal = false;
         for (Strip s : State.fence.getStrips()) anyDiagonal |= s.isDiag() && s.getStart() != s.getEnd();
         assertTrue(anyDiagonal);
     }
 
     @Test
+    public void lastSliderSetsDrawingWidth() {
+        fill(0xFFFFFFFF);
+        settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
+        assertTrue(controller.runAutoStrips(true));
+        assertEquals(4.51f, State.currentStripWidth, 0f);
+        assertTrue(controller.runAutoStrips(false));
+        assertEquals(1.51f, State.currentStripWidth, 0f);
+    }
+
+    @Test
     public void noAutoStripsWithoutPictureOrOnAbnormalFence() {
-        assertFalse(controller.runAutoStrips());
+        assertFalse(controller.runAutoStrips(true));
         State.fence = new AbnormalFence(20, 20);
         fill(0xFFFFFFFF);
-        assertFalse(controller.runAutoStrips());
+        assertFalse(controller.runAutoStrips(true));
     }
 
     // ------------------------------------------------------------------ picture
@@ -305,7 +315,7 @@ public class PictureAndAutoStripsTest {
     public void autoStripsSessionRedo() {
         fill(0xFFFFFFFF);
         settings(State.AutoDirection.HORIZONTAL, 0.5f, 1f);
-        controller.runAutoStrips();
+        controller.runAutoStrips(true);
         int n = State.fence.getStrips().size();
         controller.undo();
         assertTrue(State.fence.getStrips().isEmpty());
