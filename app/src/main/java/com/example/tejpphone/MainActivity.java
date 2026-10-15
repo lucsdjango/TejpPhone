@@ -327,10 +327,12 @@ public class MainActivity extends AppCompatActivity {
         opacityValue = findViewById(R.id.opacityValue);
         opacitySlider.setValue(State.pictureOpacity);
         opacityValue.setText(percent(State.pictureOpacity));
-        opacitySlider.addOnChangeListener((s, value, fromUser) -> {
+        Slider.OnChangeListener onOpacity = (s, value, fromUser) -> {
             opacityValue.setText(percent(value));
             if (fromUser) controller.setPictureOpacity(value);
-        });
+        };
+        opacitySlider.addOnChangeListener(onOpacity);
+        SliderSteps.attach(opacitySlider, onOpacity);
     }
 
     private static String percent(float v) {
@@ -364,17 +366,28 @@ public class MainActivity extends AppCompatActivity {
 
         // Like the desktop, moving a slider stores its value for the current direction
         // and recomputes the auto strips straight away.
-        thresholdSlider.addOnChangeListener((s, value, fromUser) -> {
+        Slider.OnChangeListener onThreshold = (s, value, fromUser) -> {
             thresholdValue.setText(String.format(Locale.US, "%.2f", value));
             if (!fromUser) return;
             State.autoThreshold[State.autoDirection.ordinal()] = value;
             runAutoStrips(true);
-        });
-        contrastSlider.addOnChangeListener((s, value, fromUser) -> {
+        };
+        Slider.OnChangeListener onContrast = (s, value, fromUser) -> {
             contrastValue.setText(String.format(Locale.US, "%.2f", value));
             if (!fromUser) return;
             State.autoContrast[State.autoDirection.ordinal()] = value;
             runAutoStrips(false);
+        };
+        thresholdSlider.addOnChangeListener(onThreshold);
+        contrastSlider.addOnChangeListener(onContrast);
+        // Each tap on a step button counts as a drag of its own for the warning.
+        SliderSteps.attach(thresholdSlider, (s, value, fromUser) -> {
+            warnedThisDrag = false;
+            onThreshold.onValueChange(s, value, fromUser);
+        });
+        SliderSteps.attach(contrastSlider, (s, value, fromUser) -> {
+            warnedThisDrag = false;
+            onContrast.onValueChange(s, value, fromUser);
         });
         Slider.OnSliderTouchListener resetWarning = new Slider.OnSliderTouchListener() {
             @Override
@@ -409,8 +422,8 @@ public class MainActivity extends AppCompatActivity {
         }
         autoReason.setText(reason);
         autoReason.setVisibility(reason == null ? View.GONE : View.VISIBLE);
-        thresholdSlider.setEnabled(reason == null);
-        contrastSlider.setEnabled(reason == null);
+        SliderSteps.setEnabled(thresholdSlider, reason == null);
+        SliderSteps.setEnabled(contrastSlider, reason == null);
     }
 
     private void runAutoStrips(boolean thresholdMoved) {
