@@ -84,6 +84,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // A window can only be made translucent by its theme, so this has to come first.
+        boolean transparent = Autosave.transparentBackground(this);
+        if (transparent) setTheme(R.style.Theme_TejpPhone_Transparent);
         super.onCreate(savedInstanceState);
         if (getResources().getBoolean(R.bool.landscape_only)) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
@@ -107,9 +110,11 @@ public class MainActivity extends AppCompatActivity {
         controller.setSnapFeedback(() -> fenceView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK));
         fenceView.setController(controller);
         fenceView.setFence(State.fence);
+        fenceView.setTransparentBackground(transparent);
 
         topBar = findViewById(R.id.topBar);
         topBar.setOnMenuItemClickListener(this::onMenuItem);
+        topBar.getMenu().findItem(R.id.action_transparent).setChecked(transparent);
         contextRow = findViewById(R.id.contextRow);
         picturePanel = findViewById(R.id.picturePanel);
         autoPanel = findViewById(R.id.autoPanel);
@@ -448,6 +453,10 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(this, LayersActivity.class));
         } else if (id == R.id.action_fit) {
             fenceView.fitToView();
+        } else if (id == R.id.action_transparent) {
+            // Switching the window theme needs a new activity. The drawing is in State, so it stays.
+            Autosave.setTransparentBackground(this, !item.isChecked());
+            recreate();
         } else if (id == R.id.action_new_normal) {
             confirmDiscard("Start a new diagonal fence?", () -> newFence(controller::newNormalFence));
         } else if (id == R.id.action_new_vertical) {

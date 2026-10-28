@@ -7,6 +7,7 @@ import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.HapticFeedbackConstants;
@@ -88,6 +89,8 @@ public class FenceView extends View {
     private final int longPressTimeout = ViewConfiguration.getLongPressTimeout();
 
     private Fence fence;
+    /** Clear the area around the fence instead of filling it, so what is behind the window shows. */
+    private boolean transparentBackground = false;
     /** Non-null in the layers viewer: strips from the layers underneath, drawn opaque. */
     private Fence below;
     private TouchController controller;
@@ -165,6 +168,11 @@ public class FenceView extends View {
         invalidate();
     }
 
+    public void setTransparentBackground(boolean transparent) {
+        transparentBackground = transparent;
+        invalidate();
+    }
+
     public void setBelow(@Nullable Fence b) {
         below = b;
         invalidate();
@@ -204,7 +212,10 @@ public class FenceView extends View {
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
-        canvas.drawColor(BACKGROUND);
+        // CLEAR also wipes out the parent's background under this view, which makes a see-through
+        // hole as long as the window itself is translucent.
+        if (transparentBackground) canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+        else canvas.drawColor(BACKGROUND);
         if (fence == null) return;
 
         canvas.save();

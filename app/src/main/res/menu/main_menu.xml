@@ -28,6 +28,11 @@
         android:title="Fit to screen"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_transparent"
+        android:checkable="true"
+        android:title="Transparent background"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_new_normal"
         android:title="New diagonal fence"
         app:showAsAction="never" />

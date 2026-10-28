@@ -140,6 +140,17 @@ final class Autosave {
         return true;
     }
 
+    /** The see-through background for Meta Quest passthrough. Read before the activity is created. */
+    static boolean transparentBackground(Context context) {
+        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getBoolean("transparentBackground", false);
+    }
+
+    static void setTransparentBackground(Context context, boolean transparent) {
+        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putBoolean("transparentBackground", transparent).apply();
+    }
+
     private static void saveSettings(SharedPreferences.Editor p) {
         p.putFloat("width", State.currentStripWidth);
         p.putInt("color", State.currentColor);

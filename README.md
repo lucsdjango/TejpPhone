@@ -98,6 +98,8 @@ Auto strips work on diagonal and vertical fences, and need a loaded picture.
 - **Layers** – view the drawing layer by layer. Swipe sideways or use **Previous** / **Next**;
   **Show layers below** draws the layers underneath for context.
 - **Fit to screen** – zoom to show the whole fence.
+- **Transparent background** – make the grey drawing area see-through. On a Meta Quest
+  this shows your surroundings (passthrough) behind the grid and strips. The bars stay solid.
 - **New diagonal fence** / **New vertical fence** – start a new drawing.
 
 If there are unsaved changes, the app asks before opening another file or starting a new fence.
