@@ -1,7 +1,9 @@
 package com.example.tejpphone;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -9,6 +11,7 @@ import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.HapticFeedbackConstants;
 import android.view.MenuItem;
+import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
@@ -24,6 +27,7 @@ import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.TooltipCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -79,6 +83,10 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<String[]> pictureLauncher;
     private ActivityResultLauncher<String> exportLauncher;
 
+    private TextureView cameraView;
+    private CameraBackground camera;
+    private ActivityResultLauncher<String[]> cameraPermissionLauncher;
+
     private boolean refreshPending = false;
     private boolean warnedThisDrag = false;
 
@@ -123,7 +131,22 @@ public class MainActivity extends AppCompatActivity {
         buildAutoPanel();
         buildContextRow();
         setUpFiles();
+        setUpCamera();
         refreshUi();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Permission can be taken away in the settings while the app is in the background.
+        if (State.cameraBackground && !hasCameraPermission()) State.cameraBackground = false;
+        showCamera(State.cameraBackground);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        camera.stop();
     }
 
     @Override
@@ -448,6 +471,14 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(this, LayersActivity.class));
         } else if (id == R.id.action_fit) {
             fenceView.fitToView();
+        } else if (id == R.id.action_camera) {
+            if (item.isChecked()) {
+                setCameraBackground(false);
+            } else if (hasCameraPermission()) {
+                setCameraBackground(true);
+            } else {
+                cameraPermissionLauncher.launch(CAMERA_PERMISSIONS);
+            }
         } else if (id == R.id.action_new_normal) {
             confirmDiscard("Start a new diagonal fence?", () -> newFence(controller::newNormalFence));
         } else if (id == R.id.action_new_vertical) {
@@ -478,6 +509,57 @@ public class MainActivity extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Discard changes", (d, w) -> action.run())
                 .show();
+    }
+
+    // ------------------------------------------------------------------ camera background
+
+    /** On a Meta Quest either one gives the passthrough camera; elsewhere only CAMERA exists. */
+    private static final String[] CAMERA_PERMISSIONS =
+            {Manifest.permission.CAMERA, "horizonos.permission.HEADSET_CAMERA"};
+
+    private void setUpCamera() {
+        cameraView = findViewById(R.id.cameraView);
+        camera = new CameraBackground(this, cameraView, this::onCameraFailed);
+        cameraPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(), granted -> {
+                    if (granted.containsValue(true)) {
+                        setCameraBackground(true);
+                    } else {
+                        Toast.makeText(this, "Camera background needs access to the camera",
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private boolean hasCameraPermission() {
+        for (String p : CAMERA_PERMISSIONS) {
+            if (ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED) return true;
+        }
+        return false;
+    }
+
+    private void setCameraBackground(boolean on) {
+        State.cameraBackground = on;
+        showCamera(on);
+    }
+
+    /** Shows the camera picture in place of the grey background, or the other way round. */
+    private void showCamera(boolean on) {
+        topBar.getMenu().findItem(R.id.action_camera).setChecked(on);
+        fenceView.setShowsBackground(!on);
+        if (on) {
+            cameraView.setVisibility(View.VISIBLE);
+            camera.start();
+        } else {
+            camera.stop();
+            cameraView.setVisibility(View.GONE);
+        }
+    }
+
+    private void onCameraFailed(String message) {
+        if (isDestroyed()) return;
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        setCameraBackground(false);
     }
 
     // ------------------------------------------------------------------ files

@@ -88,6 +88,8 @@ public class FenceView extends View {
     private final int longPressTimeout = ViewConfiguration.getLongPressTimeout();
 
     private Fence fence;
+    /** False when something behind this view, such as the camera picture, should show through. */
+    private boolean showsBackground = true;
     /** Non-null in the layers viewer: strips from the layers underneath, drawn opaque. */
     private Fence below;
     private TouchController controller;
@@ -165,6 +167,11 @@ public class FenceView extends View {
         invalidate();
     }
 
+    public void setShowsBackground(boolean shows) {
+        showsBackground = shows;
+        invalidate();
+    }
+
     public void setBelow(@Nullable Fence b) {
         below = b;
         invalidate();
@@ -204,7 +211,7 @@ public class FenceView extends View {
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
-        canvas.drawColor(BACKGROUND);
+        if (showsBackground) canvas.drawColor(BACKGROUND);
         if (fence == null) return;
 
         canvas.save();

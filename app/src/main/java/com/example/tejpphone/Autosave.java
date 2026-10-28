@@ -156,6 +156,7 @@ final class Autosave {
         p.putBoolean("keepAspect", State.keepPictureAspect);
         p.putBoolean("boxSelect", State.boxSelect);
         p.putBoolean("autoPanelOpen", State.autoPanelOpen);
+        p.putBoolean("cameraBackground", State.cameraBackground);
         p.putString("autoDirection", State.autoDirection.name());
         for (int i = 0; i < 3; i++) {
             p.putFloat("threshold" + i, State.autoThreshold[i]);
@@ -188,6 +189,7 @@ final class Autosave {
         State.keepPictureAspect = p.getBoolean("keepAspect", State.keepPictureAspect);
         State.boxSelect = p.getBoolean("boxSelect", State.boxSelect);
         State.autoPanelOpen = p.getBoolean("autoPanelOpen", State.autoPanelOpen);
+        State.cameraBackground = p.getBoolean("cameraBackground", State.cameraBackground);
         for (int i = 0; i < 3; i++) {
             State.autoThreshold[i] = p.getFloat("threshold" + i, State.autoThreshold[i]);
             State.autoContrast[i] = p.getFloat("contrast" + i, State.autoContrast[i]);

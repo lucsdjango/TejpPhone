@@ -98,6 +98,12 @@ Auto strips work on diagonal and vertical fences, and need a loaded picture.
 - **Layers** – view the drawing layer by layer. Swipe sideways or use **Previous** / **Next**;
   **Show layers below** draws the layers underneath for context.
 - **Fit to screen** – zoom to show the whole fence.
+- **Camera background** – show a live camera picture behind the grid and strips instead of the
+  grey background, so you can line the drawing up with a real fence. The app asks for camera
+  access the first time. On a Meta Quest 3 or 3S with a recent Horizon OS this uses a passthrough
+  camera; elsewhere the back camera. The picture is cropped to fill the drawing area, and on a
+  Quest it is a flat picture in the window, so it does not stay lined up with the room as you move
+  your head.
 - **New diagonal fence** / **New vertical fence** – start a new drawing.
 
 If there are unsaved changes, the app asks before opening another file or starting a new fence.
