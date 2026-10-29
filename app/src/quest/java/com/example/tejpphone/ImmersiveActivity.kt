@@ -8,12 +8,15 @@ import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.SpatialFeature
 import com.meta.spatial.core.SystemBase
+import com.meta.spatial.core.Vector2
 import com.meta.spatial.core.Vector3
+import com.meta.spatial.isdk.IsdkGrabMovementType
+import com.meta.spatial.isdk.IsdkGrabbable
+import com.meta.spatial.isdk.IsdkPanelResize
+import com.meta.spatial.isdk.ResizeMode
 import com.meta.spatial.runtime.LayerConfig
 import com.meta.spatial.runtime.ReferenceSpace
 import com.meta.spatial.toolkit.AppSystemActivity
-import com.meta.spatial.toolkit.Grabbable
-import com.meta.spatial.toolkit.GrabbableType
 import com.meta.spatial.toolkit.Panel
 import com.meta.spatial.toolkit.PanelRegistration
 import com.meta.spatial.toolkit.PlayerBodyAttachmentSystem
@@ -24,13 +27,24 @@ import java.lang.ref.WeakReference
 
 /**
  * Mixed reality on a Meta Quest. The room shows through the headset cameras (passthrough) and
- * the drawing screen floats in it on a panel, which can be grabbed and moved, for example in
- * front of the real fence. The panel shows MixedRealityPanelActivity, which is see-through
- * around the fence.
+ * the drawing screen floats in it on a panel, which can be grabbed, moved and resized, for
+ * example to cover the real fence. The panel shows MixedRealityPanelActivity, which is
+ * see-through around the fence.
+ *
+ * The panel starts at the size the normal window had. Where that window was in the room is not
+ * available to apps, so the panel starts straight ahead instead, where the user was looking.
  *
  * Built with the Meta Spatial SDK, following Meta's HybridSample.
  */
 class ImmersiveActivity : AppSystemActivity() {
+
+    /** Starting panel size in metres, from the normal window's size in dp if it was passed. */
+    private val panelSize: Vector2 by lazy {
+        val w = intent.getFloatExtra(MainActivity.EXTRA_WINDOW_WIDTH_DP, 0f)
+        val h = intent.getFloatExtra(MainActivity.EXTRA_WINDOW_HEIGHT_DP, 0f)
+        if (w > 0f && h > 0f) Vector2(w / DP_PER_METRE, h / DP_PER_METRE)
+        else Vector2(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+    }
 
     override fun registerFeatures(): List<SpatialFeature> = listOf(VRFeature(this))
 
@@ -59,10 +73,10 @@ class ImmersiveActivity : AppSystemActivity() {
             activityClass = MixedRealityPanelActivity::class.java
             config {
                 themeResourceId = R.style.Theme_TejpPhone_SeeThrough
-                width = PANEL_WIDTH
-                height = PANEL_HEIGHT
-                layoutWidthInDp = PANEL_WIDTH * DP_PER_METRE
-                layoutHeightInDp = PANEL_HEIGHT * DP_PER_METRE
+                width = panelSize.x
+                height = panelSize.y
+                layoutWidthInDp = panelSize.x * DP_PER_METRE
+                layoutHeightInDp = panelSize.y * DP_PER_METRE
                 // A compositor layer keeps the text sharp; transparent pixels stay see-through.
                 layerConfig = LayerConfig()
                 enableTransparent = true
@@ -108,7 +122,16 @@ class ImmersiveActivity : AppSystemActivity() {
                 listOf(
                     Panel(R.id.fence_panel),
                     Transform(Pose(position, Quaternion.lookRotationAroundY(forward))),
-                    Grabbable(true, GrabbableType.PIVOT_Y),
+                    // Follows the hand freely, so it can be turned to line up with the fence.
+                    IsdkGrabbable(enabled = true, movementType = IsdkGrabMovementType.Direct),
+                    // Corner handles. Relayout gives the screen more room instead of magnifying it.
+                    IsdkPanelResize(
+                        enabled = true,
+                        resizeMode = ResizeMode.Relayout,
+                        minDimensions = Vector2(MIN_WIDTH, MIN_HEIGHT),
+                        maxDimensions = Vector2(MAX_WIDTH, MAX_HEIGHT),
+                        preserveAspectRatio = false,
+                    ),
                 ),
             )
             placed = true
@@ -116,11 +139,18 @@ class ImmersiveActivity : AppSystemActivity() {
     }
 
     companion object {
-        /** Panel size in metres, and how far in front of the user it starts. */
-        private const val PANEL_WIDTH = 1.6f
-        private const val PANEL_HEIGHT = 1.0f
+        /** Panel sizes in metres, and how far in front of the user it starts. */
+        private const val DEFAULT_WIDTH = 1.6f
+        private const val DEFAULT_HEIGHT = 1.0f
+        private const val MIN_WIDTH = 0.5f
+        private const val MIN_HEIGHT = 0.4f
+        private const val MAX_WIDTH = 4f
+        private const val MAX_HEIGHT = 3f
         private const val PANEL_DISTANCE = 1.2f
-        /** 1.6 x 1.0 m becomes a 1280 x 800 dp screen, which gets the large-screen layout. */
+        /**
+         * Panel scale. A 1024 x 640 dp window becomes 1.28 x 0.8 m. Resizing keeps this, so a
+         * bigger panel gets more room rather than bigger buttons.
+         */
         private const val DP_PER_METRE = 800f
 
         private var current: WeakReference<ImmersiveActivity>? = null

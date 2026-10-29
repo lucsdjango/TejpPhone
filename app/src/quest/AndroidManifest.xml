@@ -59,10 +59,12 @@
             </intent-filter>
         </activity>
 
-        <!-- The drawing screen shown on that panel. Same process, so it shares the drawing. -->
+        <!-- The drawing screen shown on that panel. Same process, so it shares the drawing.
+             Resizing the panel resizes this window; configChanges keeps it from restarting. -->
         <activity
             android:name=".MixedRealityPanelActivity"
             android:allowEmbedded="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="false"
             android:theme="@style/Theme.TejpPhone.SeeThrough" />
     </application>

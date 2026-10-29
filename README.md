@@ -120,7 +120,11 @@ passthrough: you see your room, and the drawing screen floats in it on a panel. 
 around the fence is see-through, so you can hold the grid and strips up against a real fence.
 
 - Point at the panel and hold the grip button to move and turn it.
-- The panel starts 1.2 m in front of you. It is 1.6 x 1.0 m and does not change size.
+- Drag a corner of the panel to resize it. A bigger panel gives the screen more room; buttons and
+  text keep their size.
+- The panel starts 1.2 m straight ahead, at the size the normal window had (a 1024 x 640 dp
+  window becomes 1.28 x 0.8 m). It cannot start where the normal window was, because the app is
+  not told where that is.
 - The thumbstick does not move you around, so the panel stays put in the room.
 - Zoom with the **+** and **–** buttons at the right of the fence; there is no two-finger pinch
   with a controller. Double tap or **Fit to screen** still fits the whole fence.

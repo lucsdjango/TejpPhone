@@ -498,6 +498,9 @@ public class MainActivity extends AppCompatActivity {
 
     /** In the Quest build only, so it is looked up by name. */
     private static final String IMMERSIVE_ACTIVITY = "com.example.tejpphone.ImmersiveActivity";
+    /** The size of this window in dp, so the mixed reality panel can start at the same size. */
+    public static final String EXTRA_WINDOW_WIDTH_DP = "windowWidthDp";
+    public static final String EXTRA_WINDOW_HEIGHT_DP = "windowHeightDp";
 
     private Intent mixedRealityIntent() {
         return new Intent().setClassName(this, IMMERSIVE_ACTIVITY);
@@ -537,7 +540,12 @@ public class MainActivity extends AppCompatActivity {
 
     /** Switches to mixed reality, where the drawing continues on a panel in the room. */
     private void enterMixedReality() {
-        startActivity(mixedRealityIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        View window = getWindow().getDecorView();
+        float density = getResources().getDisplayMetrics().density;
+        startActivity(mixedRealityIntent()
+                .putExtra(EXTRA_WINDOW_WIDTH_DP, window.getWidth() / density)
+                .putExtra(EXTRA_WINDOW_HEIGHT_DP, window.getHeight() / density)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         // The panel opens its own screen on the same drawing, so this one is not needed.
         finish();
     }
