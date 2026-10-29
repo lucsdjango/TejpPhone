@@ -26,6 +26,10 @@ In Android Studio, pick the build in **Build Variants** (`phoneDebug` or `questD
 
 The APKs end up in `app/build/outputs/apk/phone/debug/` and `app/build/outputs/apk/quest/debug/`.
 
+Ready-built debug APKs are in [`apk/`](apk/): `TejpPhone-phone-debug.apk` and
+`TejpPhone-quest-debug.apk`. Install one with `adb install <file>`. They are copied there by hand,
+so they can be older than the code.
+
 ## The screen
 
 - **Top bar** – the file name (with "Unsaved changes" when needed), a Save button, and a menu with
