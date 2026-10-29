@@ -6,10 +6,4 @@
     </style>
 
     <style name="Theme.TejpPhone" parent="Base.Theme.TejpPhone" />
-
-    <!-- See-through window, so the room shows behind the fence on a Meta Quest (passthrough). -->
-    <style name="Theme.TejpPhone.Transparent">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-    </style>
 </resources>

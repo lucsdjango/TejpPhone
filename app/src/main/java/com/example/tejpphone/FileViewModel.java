@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.ImageDecoder;
 import android.net.Uri;
 import android.os.Build;
+import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 
 import androidx.annotation.NonNull;
@@ -20,9 +21,11 @@ import com.example.tejpphone.model.Picture;
 import com.example.tejpphone.model.TjpFile;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -93,10 +96,12 @@ public class FileViewModel extends AndroidViewModel {
     /**
      * Writes the data to uri. When overwriting the current file fails, for example because
      * the permission has expired, the result asks the activity to pick a new file instead.
+     * A new file gets .tjp added to its name if the user left it off.
      */
-    public void save(Uri uri, byte[] data, boolean overwrite) {
+    public void save(Uri target, byte[] data, boolean overwrite) {
         executor.execute(() -> {
             ContentResolver cr = getApplication().getContentResolver();
+            Uri uri = overwrite ? target : withTjpSuffix(cr, target);
             String name = displayName(cr, uri);
             // "wt" truncates. Plain "w" may leave old bytes at the end on some providers,
             // which would make the file unreadable.
@@ -194,6 +199,21 @@ public class FileViewModel extends AndroidViewModel {
                 image.recycle();
             }
         });
+    }
+
+    /** Renames the new file to end in .tjp. Keeps the name as it is if the provider cannot rename. */
+    private Uri withTjpSuffix(ContentResolver cr, Uri uri) {
+        String name = displayName(cr, uri);
+        if (name.toLowerCase(Locale.ROOT).endsWith(".tjp")
+                || !DocumentsContract.isDocumentUri(getApplication(), uri)) {
+            return uri;
+        }
+        try {
+            // May return a new Uri; access granted to the old one carries over.
+            return DocumentsContract.renameDocument(cr, uri, name + ".tjp");
+        } catch (FileNotFoundException | RuntimeException e) {
+            return uri;
+        }
     }
 
     private static byte[] readAll(InputStream in) throws IOException {

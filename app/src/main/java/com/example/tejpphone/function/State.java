@@ -102,7 +102,7 @@ public final class State {
     /** The auto strips panel is open in Picture mode. */
     public static boolean autoPanelOpen = false;
 
-    /** A live camera picture is shown behind the fence instead of the grey background. */
+    /** A live camera picture is shown behind the fence instead of the grey background. Not saved. */
     public static boolean cameraBackground = false;
 
     private static Mode mode = Mode.DRAWING;

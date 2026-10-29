@@ -92,7 +92,7 @@ Auto strips work on diagonal and vertical fences, and need a loaded picture.
 ## Menu
 
 - **Save** – save to the current file, or ask where to save if it is new.
-- **Save as…** – save to a new `.tjp` file.
+- **Save as…** – save to a new `.tjp` file. If you leave `.tjp` off the name, it is added.
 - **Open…** – open a `.tjp` file.
 - **Export JPG…** – save the drawing as an image.
 - **Layers** – view the drawing layer by layer. Swipe sideways or use **Previous** / **Next**;
@@ -103,7 +103,7 @@ Auto strips work on diagonal and vertical fences, and need a loaded picture.
   access the first time. On a Meta Quest 3 or 3S with a recent Horizon OS this uses a passthrough
   camera; elsewhere the back camera. The picture is cropped to fill the drawing area, and on a
   Quest it is a flat picture in the window, so it does not stay lined up with the room as you move
-  your head.
+  your head. It is not saved with the drawing, and is off each time the app starts.
 - **New diagonal fence** / **New vertical fence** – start a new drawing.
 
 If there are unsaved changes, the app asks before opening another file or starting a new fence.
