@@ -5,17 +5,26 @@ edges of a fence grid, pick their width and colour, and can trace over a referen
 the app generate strips from it. Drawings are saved as `.tjp` files, the same format as the
 desktop version, and can be exported as JPG.
 
-Requires Android 8.1 (API 27) or newer.
+Requires Android 8.1 (API 27) or newer. There is also a build for Meta Quest headsets with a
+[mixed reality](#mixed-reality-meta-quest) mode.
 
 ## Building
 
-Open the project in Android Studio and run the `app` configuration, or from the command line:
+There are two builds (product flavors):
+
+- `phone` – phones and tablets. This is the default.
+- `quest` – Meta Quest. The same app plus mixed reality, built with the Meta Spatial SDK.
+  Needs Horizon OS v69 or newer.
+
+In Android Studio, pick the build in **Build Variants** (`phoneDebug` or `questDebug`) and run the
+`app` configuration. From the command line:
 
 ```
-./gradlew assembleDebug
+./gradlew assemblePhoneDebug
+./gradlew assembleQuestDebug
 ```
 
-The APK ends up in `app/build/outputs/apk/debug/`.
+The APKs end up in `app/build/outputs/apk/phone/debug/` and `app/build/outputs/apk/quest/debug/`.
 
 ## The screen
 
@@ -30,6 +39,7 @@ The APK ends up in `app/build/outputs/apk/debug/`.
 - Pinch with two fingers to zoom, drag with two fingers to pan.
 - Drag with one finger outside the fence to pan.
 - Double tap to fit the whole fence on screen (also in the menu as **Fit to screen**).
+- With a mouse, the scroll wheel zooms.
 - While your finger is on the fence a magnifier shows what is under it.
 
 ## Tools
@@ -98,15 +108,23 @@ Auto strips work on diagonal and vertical fences, and need a loaded picture.
 - **Layers** – view the drawing layer by layer. Swipe sideways or use **Previous** / **Next**;
   **Show layers below** draws the layers underneath for context.
 - **Fit to screen** – zoom to show the whole fence.
-- **Camera background** – show a live camera picture behind the grid and strips instead of the
-  grey background, so you can line the drawing up with a real fence. The app asks for camera
-  access the first time. On a Meta Quest 3 or 3S with a recent Horizon OS this uses a passthrough
-  camera; elsewhere the back camera. The picture is cropped to fill the drawing area, and on a
-  Quest it is a flat picture in the window, so it does not stay lined up with the room as you move
-  your head. It is not saved with the drawing, and is off each time the app starts.
+- **Mixed reality** / **Leave mixed reality** – Quest build only, see below.
 - **New diagonal fence** / **New vertical fence** – start a new drawing.
 
 If there are unsaved changes, the app asks before opening another file or starting a new fence.
+
+## Mixed reality (Meta Quest)
+
+In the Quest build the app starts as a normal window. **Mixed reality** in the menu switches to
+passthrough: you see your room, and the drawing screen floats in it on a panel. The grey area
+around the fence is see-through, so you can hold the grid and strips up against a real fence.
+
+- Point at the panel and hold the grip button to move and turn it.
+- The panel starts 1.2 m in front of you. It is 1.6 x 1.0 m and does not change size.
+- The thumbstick does not move you around, so the panel stays put in the room.
+- Zoom with the **+** and **–** buttons at the right of the fence; there is no two-finger pinch
+  with a controller. Double tap or **Fit to screen** still fits the whole fence.
+- **Leave mixed reality** in the menu goes back to the normal window, on the same drawing.
 
 ## Autosave
 

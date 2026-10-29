@@ -18,6 +18,20 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // phone: phones and tablets. quest: Meta Quest, with a mixed reality mode built on the
+    // Meta Spatial SDK (see src/quest).
+    flavorDimensions = ["device"]
+    productFlavors {
+        phone {
+            dimension "device"
+            isDefault true
+        }
+        quest {
+            dimension "device"
+            minSdk 34   // Horizon OS is Android 14
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -35,6 +49,9 @@ dependencies {
     implementation libs.material
     implementation libs.activity
     implementation libs.constraintlayout
+    questImplementation libs.meta.spatial.sdk
+    questImplementation libs.meta.spatial.sdk.toolkit
+    questImplementation libs.meta.spatial.sdk.vr
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

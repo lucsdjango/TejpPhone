@@ -2,13 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Camera background. HEADSET_CAMERA is the Meta Quest passthrough camera permission. -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="horizonos.permission.HEADSET_CAMERA" />
-    <uses-feature
-        android:name="android.hardware.camera.any"
-        android:required="false" />
-
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

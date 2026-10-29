@@ -1,19 +1,19 @@
 package com.example.tejpphone;
 
-import android.Manifest;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
+import android.view.Menu;
 import android.view.MenuItem;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -27,7 +27,6 @@ import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.TooltipCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -44,6 +43,7 @@ import com.example.tejpphone.view.ImageExporter;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -83,10 +83,6 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<String[]> pictureLauncher;
     private ActivityResultLauncher<String> exportLauncher;
 
-    private TextureView cameraView;
-    private CameraBackground camera;
-    private ActivityResultLauncher<String[]> cameraPermissionLauncher;
-
     private boolean refreshPending = false;
     private boolean warnedThisDrag = false;
 
@@ -115,9 +111,14 @@ public class MainActivity extends AppCompatActivity {
         controller.setSnapFeedback(() -> fenceView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK));
         fenceView.setController(controller);
         fenceView.setFence(State.fence);
+        fenceView.setTransparentBackground(isMixedRealityPanel());
 
         topBar = findViewById(R.id.topBar);
         topBar.setOnMenuItemClickListener(this::onMenuItem);
+        Menu menu = topBar.getMenu();
+        menu.findItem(R.id.action_mixed_reality).setVisible(
+                !isMixedRealityPanel() && mixedRealityIntent().resolveActivity(getPackageManager()) != null);
+        menu.findItem(R.id.action_leave_mixed_reality).setVisible(isMixedRealityPanel());
         contextRow = findViewById(R.id.contextRow);
         picturePanel = findViewById(R.id.picturePanel);
         autoPanel = findViewById(R.id.autoPanel);
@@ -127,26 +128,12 @@ public class MainActivity extends AppCompatActivity {
 
         buildBottomBar();
         buildSelectionBar();
+        if (isMixedRealityPanel()) buildZoomBar();
         buildPicturePanel();
         buildAutoPanel();
         buildContextRow();
         setUpFiles();
-        setUpCamera();
         refreshUi();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Permission can be taken away in the settings while the app is in the background.
-        if (State.cameraBackground && !hasCameraPermission()) State.cameraBackground = false;
-        showCamera(State.cameraBackground);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        camera.stop();
     }
 
     @Override
@@ -471,14 +458,10 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(this, LayersActivity.class));
         } else if (id == R.id.action_fit) {
             fenceView.fitToView();
-        } else if (id == R.id.action_camera) {
-            if (item.isChecked()) {
-                setCameraBackground(false);
-            } else if (hasCameraPermission()) {
-                setCameraBackground(true);
-            } else {
-                cameraPermissionLauncher.launch(CAMERA_PERMISSIONS);
-            }
+        } else if (id == R.id.action_mixed_reality) {
+            enterMixedReality();
+        } else if (id == R.id.action_leave_mixed_reality) {
+            leaveMixedReality();
         } else if (id == R.id.action_new_normal) {
             confirmDiscard("Start a new diagonal fence?", () -> newFence(controller::newNormalFence));
         } else if (id == R.id.action_new_vertical) {
@@ -511,56 +494,56 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    // ------------------------------------------------------------------ camera background
+    // ------------------------------------------------------------------ mixed reality (Quest build only)
 
-    /** On a Meta Quest either one gives the passthrough camera; elsewhere only CAMERA exists. */
-    private static final String[] CAMERA_PERMISSIONS =
-            {Manifest.permission.CAMERA, "horizonos.permission.HEADSET_CAMERA"};
+    /** In the Quest build only, so it is looked up by name. */
+    private static final String IMMERSIVE_ACTIVITY = "com.example.tejpphone.ImmersiveActivity";
 
-    private void setUpCamera() {
-        cameraView = findViewById(R.id.cameraView);
-        camera = new CameraBackground(this, cameraView, this::onCameraFailed);
-        cameraPermissionLauncher = registerForActivityResult(
-                new ActivityResultContracts.RequestMultiplePermissions(), granted -> {
-                    if (granted.containsValue(true)) {
-                        setCameraBackground(true);
-                    } else {
-                        Toast.makeText(this, "Camera background needs access to the camera",
-                                Toast.LENGTH_LONG).show();
-                    }
-                });
+    private Intent mixedRealityIntent() {
+        return new Intent().setClassName(this, IMMERSIVE_ACTIVITY);
     }
 
-    private boolean hasCameraPermission() {
-        for (String p : CAMERA_PERMISSIONS) {
-            if (ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED) return true;
-        }
+    /**
+     * True when this screen is on the see-through panel in mixed reality. The area around the
+     * fence is then cleared, so the room shows behind the grid and strips.
+     */
+    protected boolean isMixedRealityPanel() {
         return false;
     }
 
-    private void setCameraBackground(boolean on) {
-        State.cameraBackground = on;
-        showCamera(on);
+    /** How much one tap on a zoom button zooms. */
+    private static final float ZOOM_STEP = 1.5f;
+
+    /**
+     * Zoom buttons at the side of the fence. On the mixed reality panel there is only one pointer,
+     * so there is no two-finger pinch.
+     */
+    private void buildZoomBar() {
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setPadding(dp(4), dp(4), dp(4), dp(4));
+        selectionButton(column, R.drawable.ic_add, "Zoom in", () -> fenceView.zoomBy(ZOOM_STEP));
+        selectionButton(column, R.drawable.ic_remove, "Zoom out", () -> fenceView.zoomBy(1 / ZOOM_STEP));
+
+        MaterialCardView card = new MaterialCardView(this);
+        card.setRadius(dp(16));
+        card.setCardElevation(dp(6));
+        card.addView(column);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.CENTER_VERTICAL);
+        lp.setMargins(dp(12), dp(12), dp(12), dp(12));
+        ((ViewGroup) fenceView.getParent()).addView(card, lp);
     }
 
-    /** Shows the camera picture in place of the grey background, or the other way round. */
-    private void showCamera(boolean on) {
-        topBar.getMenu().findItem(R.id.action_camera).setChecked(on);
-        fenceView.setShowsBackground(!on);
-        if (on) {
-            cameraView.setVisibility(View.VISIBLE);
-            camera.start();
-        } else {
-            camera.stop();
-            cameraView.setVisibility(View.GONE);
-        }
+    /** Switches to mixed reality, where the drawing continues on a panel in the room. */
+    private void enterMixedReality() {
+        startActivity(mixedRealityIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        // The panel opens its own screen on the same drawing, so this one is not needed.
+        finish();
     }
 
-    private void onCameraFailed(String message) {
-        if (isDestroyed()) return;
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-        setCameraBackground(false);
-    }
+    /** Goes back to the normal window. Only called on the mixed reality panel. */
+    protected void leaveMixedReality() {}
 
     // ------------------------------------------------------------------ files
 

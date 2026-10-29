@@ -1,0 +1,10 @@
+<resources>
+    <!-- The mixed reality panel: a see-through window, so the room shows wherever the drawing
+         screen does not paint, which is around the fence. -->
+    <style name="Theme.TejpPhone.SeeThrough">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>

@@ -7,9 +7,11 @@ import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.HapticFeedbackConstants;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -88,8 +90,8 @@ public class FenceView extends View {
     private final int longPressTimeout = ViewConfiguration.getLongPressTimeout();
 
     private Fence fence;
-    /** False when something behind this view, such as the camera picture, should show through. */
-    private boolean showsBackground = true;
+    /** Clear the area around the fence instead of filling it, so what is behind the window shows. */
+    private boolean transparentBackground = false;
     /** Non-null in the layers viewer: strips from the layers underneath, drawn opaque. */
     private Fence below;
     private TouchController controller;
@@ -167,8 +169,8 @@ public class FenceView extends View {
         invalidate();
     }
 
-    public void setShowsBackground(boolean shows) {
-        showsBackground = shows;
+    public void setTransparentBackground(boolean transparent) {
+        transparentBackground = transparent;
         invalidate();
     }
 
@@ -197,6 +199,35 @@ public class FenceView extends View {
         invalidate();
     }
 
+    /** Zooms around the middle of the view. For zoom buttons. */
+    public void zoomBy(float factor) {
+        zoomAround(scale * factor, getWidth() / 2f, getHeight() / 2f);
+        invalidate();
+    }
+
+    /** Sets the scale, keeping the content at screen point (fx, fy) where it is. */
+    private void zoomAround(float newScale, float fx, float fy) {
+        float ns = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+        float f = ns / scale;
+        tx = fx - (fx - tx) * f;
+        ty = fy - (fy - ty) * f;
+        scale = ns;
+    }
+
+    /** A mouse wheel, or a controller thumbstick when the system sends it as scrolling, zooms. */
+    @Override
+    public boolean onGenericMotionEvent(MotionEvent e) {
+        if (e.isFromSource(InputDevice.SOURCE_CLASS_POINTER) && e.getActionMasked() == MotionEvent.ACTION_SCROLL) {
+            float v = e.getAxisValue(MotionEvent.AXIS_VSCROLL);
+            if (v != 0) {
+                zoomAround(scale * (float) Math.pow(1.2, v), e.getX(), e.getY());
+                invalidate();
+                return true;
+            }
+        }
+        return super.onGenericMotionEvent(e);
+    }
+
     private void fitIfNeeded() {
         if (fittedWidth != getWidth() || fittedHeight != getHeight()) fitToView();
     }
@@ -211,7 +242,10 @@ public class FenceView extends View {
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
-        if (showsBackground) canvas.drawColor(BACKGROUND);
+        // CLEAR also wipes out the parent's background under this view, which makes a see-through
+        // hole as long as the window itself is translucent.
+        if (transparentBackground) canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+        else canvas.drawColor(BACKGROUND);
         if (fence == null) return;
 
         canvas.save();
@@ -558,13 +592,7 @@ public class FenceView extends View {
         // Pan first, then zoom around the new focus, so the content under the fingers stays put.
         tx += fx - lastFocusX;
         ty += fy - lastFocusY;
-        if (lastSpan > 0 && span > 0) {
-            float ns = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * span / lastSpan));
-            float f = ns / scale;
-            tx = fx - (fx - tx) * f;
-            ty = fy - (fy - ty) * f;
-            scale = ns;
-        }
+        if (lastSpan > 0 && span > 0) zoomAround(scale * span / lastSpan, fx, fy);
         lastFocusX = fx;
         lastFocusY = fy;
         lastSpan = span;

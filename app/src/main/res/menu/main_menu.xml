@@ -27,10 +27,16 @@
         android:id="@+id/action_fit"
         android:title="Fit to screen"
         app:showAsAction="never" />
+    <!-- Only one of these is shown, and only in the Quest build. -->
     <item
-        android:id="@+id/action_camera"
-        android:checkable="true"
-        android:title="Camera background"
+        android:id="@+id/action_mixed_reality"
+        android:title="Mixed reality"
+        android:visible="false"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_leave_mixed_reality"
+        android:title="Leave mixed reality"
+        android:visible="false"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_new_normal"
