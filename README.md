@@ -17,6 +17,10 @@ Open the project in Android Studio and run the `app` configuration, or from the 
 
 The APK ends up in `app/build/outputs/apk/debug/`.
 
+A ready-built debug APK is in [`apk/TejpPhone-debug.apk`](apk/TejpPhone-debug.apk). Install it
+with `adb install apk/TejpPhone-debug.apk`. It is copied there by hand, so it can be older than
+the code.
+
 ## The screen
 
 - **Top bar** – the file name (with "Unsaved changes" when needed), a Save button, and a menu with
